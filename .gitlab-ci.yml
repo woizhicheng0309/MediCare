@@ -1,0 +1,31 @@
+stages:
+  - check
+
+frontend-check:
+  stage: check
+  image: node:24
+  before_script:
+    - corepack enable
+  script:
+    - cd frontend_react
+    - pnpm install --frozen-lockfile
+    - pnpm lint
+    - pnpm build
+  artifacts:
+    paths:
+      - frontend_react/dist/
+    expire_in: 7 days
+
+backend-syntax:
+  stage: check
+  image: php:8.5-cli
+  script:
+    - cd backend_laravel
+    - find app routes database config bootstrap -name '*.php' -not -path 'bootstrap/cache/*' -print0 | xargs -0 -n 1 php -l
+
+backend-dependencies:
+  stage: check
+  image: composer:2
+  script:
+    - cd backend_laravel
+    - composer validate --no-check-publish

@@ -1,0 +1,14 @@
+# 版本控制、套件、建置結果
+.git
+node_modules
+dist
+
+# 環境變數
+.env
+.env.*
+
+# 不需要進映像檔的
+*.log
+.DS_Store
+.gitlab-ci.yml
+README.md

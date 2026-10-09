@@ -1,0 +1,8 @@
+/AGENTS.md
+.DS_Store
+.env
+.env.*
+!.env.example
+/frontend_react/node_modules/
+/frontend_react/dist/
+/backend_laravel/vendor/
