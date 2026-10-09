@@ -23,10 +23,10 @@ The senior-provided build and operations runbook is preserved in `docs/runbook`.
 - Email/password login uses the unchanged `access_token` response.
 - `/api/me` restores the authenticated user's profile and role.
 - Employee overview displays annual benefits, personal visits and medications.
-- HR overview displays own-company employees and benefit plans.
-- Helpdesk overview displays pending visits across client companies.
+- HR manages own-company employees, reviews visits/medications and assigns the current-year benefit plan.
+- Helpdesk reviews pending visits across client companies and approves or rejects submissions.
 - Existing backend APIs retain visit submission, annual plan assignment and approval/rejection functionality.
-- React forms for those write operations are the next UI checkpoint.
+- React visit submission, plan assignment and approval/rejection forms use those same protected APIs.
 
 Only approved visits count toward annual usage. Medication costs are included in visit covered amounts and are not deducted twice. Each employee has one plan assignment per calendar year; changing plans preserves that year's usage. Display/input use whole TWD and storage uses integer cents.
 
@@ -66,4 +66,4 @@ The root GitLab pipeline is configured for frontend checks and backend PHP synta
 
 ## Remaining work
 
-React visit submission, HR medical-record review/plan assignment and Helpdesk decision forms; backend token-revoking logout; reproducible seed data; automated authorization coverage; deployment setup. Legacy backend Blade routes are retained during integration and require cleanup before deployment.
+Backend token-revoking logout; reproducible seed data; automated authorization coverage; deployment setup. Legacy backend Blade routes are retained during integration and require cleanup before deployment.
