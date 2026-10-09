@@ -1,5 +1,5 @@
 <?php
-
+// 批量產生假資料
 namespace Database\Factories;
 
 use App\Models\User;

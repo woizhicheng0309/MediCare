@@ -1,26 +1,65 @@
-<h1>My healthcare benefits</h1>
-@if (session('success'))
-    <p>{{ session('success') }}</p>
-@endif
-<p>Annual limit: TWD {{ $annualLimit }}</p>
-<p>Used amount: TWD {{ $usedAmount }}</p>
-<p>Remaining balance: TWD {{ $remainingBalance }}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Benefits | MediCare Health Group</title>
+</head>
+<body>
+    <h1>My healthcare benefits</h1>
+    <p id="message" role="status">Loading...</p>
 
-@if ($remainingBalance > 0)
-    <p>You still have benefits available.</p>
-@else
-    <p>Your annual benefits is exhausted.</p>
-@endif
+    <section id="benefit-details" hidden>
+        <p>Plan: <span id="plan-name"></span></p>
+        <p>Annual limit: TWD <span id="annual-limit"></span></p>
+        <p>Used amount: TWD <span id="used-amount"></span></p>
+        <p>Remaining balance: TWD <span id="remaining-balance"></span></p>
+    </section>
 
-<h2>My clinic visits</h2>
-<ul> 
-    @foreach($visits as $visit)
-    <li>
-        {{ $visit->visited_on }} - 
-        {{ $visit->clinic }} - 
-        TWD {{ $visit->covered_amount_cents / 100 }} -
-        {{ $visit->status }}
-    </li>
-    @endforeach
-</ul>
-<a href="{{ route('visits.create') }}">Record a clinic visit</a>
+    <script>
+        async function loadBenefits() {
+            const token = sessionStorage.getItem('access_token');
+            const message = document.getElementById('message');
+
+            if (!token) {
+                window.location.replace("{{ route('login') }}");
+                return;
+            }
+
+            try {
+                const response = await fetch("{{ route('api.benefits.summary') }}", {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer ' + token,
+                    },
+                });
+
+                if (response.status === 401) {
+                    sessionStorage.removeItem('access_token');
+                    window.location.replace("{{ route('login') }}");
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    message.textContent = data.message ?? 'Unable to load benefits.';
+                    return;
+                }
+
+                document.getElementById('plan-name').textContent = data.plan_name;
+                document.getElementById('annual-limit').textContent = data.annual_limit;
+                document.getElementById('used-amount').textContent = data.used_amount;
+                document.getElementById('remaining-balance').textContent = data.remaining_balance;
+
+                document.getElementById('benefit-details').hidden = false;
+                message.textContent = '';
+            } catch (error) {
+                message.textContent = 'Unable to connect. Please try again.';
+            }
+        }
+
+        loadBenefits();
+    </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <?php
-
+// Seeders 建立預先準備好的資料
 namespace Database\Seeders;
 
 use App\Models\User;
