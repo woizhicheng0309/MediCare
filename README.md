@@ -7,10 +7,16 @@ A medical benefits platform for a Third Party Administrator, with separate React
 ```text
 frontend_react/    React + TypeScript + Vite + MUI
 backend_laravel/   Existing MediCare Laravel 13 + MySQL + JWT API
+base-image/        Senior-provided Docker runtime reference
+docs/              Senior-provided learning runbook and integration notes
 .gitlab-ci.yml    Frontend lint/build and backend syntax/dependency checks
 ```
 
 The frontend structure and theme are adapted from the senior-provided PHPdemo template. Business logic, authentication contracts, models and migrations come from the existing MediCare backend. This repository preserves that backend's Git history and is independent of the original development directory.
+
+## Learning references
+
+The senior-provided build and operations runbook is preserved in `docs/runbook`. The `base-image` directory contains the PHP-FPM, nginx and Supervisor Docker runtime reference. Read [integration notes](docs/INTEGRATION-NOTES.md) before applying template commands: the references describe different authentication contracts and deployment resources. Neither Docker deployment nor the copied base-image CI is activated by this integration.
 
 ## Integration checkpoint
 
