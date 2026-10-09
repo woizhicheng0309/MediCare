@@ -1,5 +1,6 @@
 stages:
   - check
+  - secret-detection
 
 frontend-check:
   stage: check
@@ -29,3 +30,13 @@ backend-dependencies:
   script:
     - cd backend_laravel
     - composer validate --no-check-publish
+
+# Preserve the secret-detection setup selected when creating the GitLab project.
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  SECRET_DETECTION_ENABLED: 'true'
+
+secret_detection:
+  stage: secret-detection
