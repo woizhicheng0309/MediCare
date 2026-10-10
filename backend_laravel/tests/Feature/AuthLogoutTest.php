@@ -58,4 +58,10 @@ class AuthLogoutTest extends TestCase
             ->getJson('/api/me')
             ->assertStatus(401);
     }
+
+    public function test_logout_requires_authentication(): void
+    {
+        $this->postJson('/api/logout')
+            ->assertStatus(401);
+    }
 }
