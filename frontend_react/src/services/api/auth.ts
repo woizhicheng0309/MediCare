@@ -46,3 +46,7 @@ export async function fetchWithAuth<T>(endpoint: string, options: RequestInit = 
 export function getCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
   return fetchWithAuth<CurrentUser>('/me', { signal });
 }
+
+export function logout(): Promise<{ message: string }> {
+  return fetchWithAuth<{ message: string }>('/logout', { method: 'POST' });
+}

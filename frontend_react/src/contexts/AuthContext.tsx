@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type ReactNode } from 'react';
-import { getStoredToken, setStoredToken, clearStoredToken, login as apiLogin, getCurrentUser, UNAUTHORIZED_EVENT } from '../services/api/auth';
+import { getStoredToken, setStoredToken, clearStoredToken, login as apiLogin, logout as apiLogout, ApiError, getCurrentUser, UNAUTHORIZED_EVENT } from '../services/api/auth';
 import { AuthContext } from './useAuth';
 import type { CurrentUser } from '../types';
 
@@ -10,13 +10,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const logout = useCallback(() => {
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+
+  const clearSession = useCallback(() => {
     clearStoredToken(); setToken(null); setUser(null); setLoading(false);
-    setLoginError(null); setProfileError(null);
+    setLoginError(null); setProfileError(null); setLogoutError(null);
   }, []);
 
+  const logout = useCallback(async () => {
+    setLoggingOut(true); setLogoutError(null);
+    try {
+      await apiLogout();
+      clearSession();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) clearSession();
+      else setLogoutError(error instanceof Error ? error.message : 'Unable to sign out. Please try again.');
+    } finally {
+      setLoggingOut(false);
+    }
+  }, [clearSession]);
+
   const login = useCallback(async (email: string, password: string) => {
-    logout();
+    clearSession();
     try {
       const data = await apiLogin(email, password);
       setStoredToken(data.access_token); setLoading(true); setToken(data.access_token);
@@ -24,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoginError(error instanceof Error ? error.message : 'Login failed.');
       throw error;
     }
-  }, [logout]);
+  }, [clearSession]);
 
   useEffect(() => {
     if (!token) return;
@@ -39,11 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   useEffect(() => {
-    window.addEventListener(UNAUTHORIZED_EVENT, logout);
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout);
-  }, [logout]);
+    window.addEventListener(UNAUTHORIZED_EVENT, clearSession);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, clearSession);
+  }, [clearSession]);
 
   return <AuthContext.Provider value={{ token, user, loading, profileError,
-    isAuthenticated: Boolean(token), login, logout, loginError,
+    isAuthenticated: Boolean(token), login, logout, loggingOut, logoutError, loginError,
     clearLoginError: () => setLoginError(null) }}>{children}</AuthContext.Provider>;
 }

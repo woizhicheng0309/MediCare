@@ -21,6 +21,7 @@ The senior-provided build and operations runbook is preserved in `docs/runbook`.
 ## Integration checkpoint
 
 - Email/password login uses the unchanged `access_token` response.
+- Sign out revokes the current JWT through Laravel before clearing the browser session.
 - `/api/me` restores the authenticated user's profile and role.
 - Employee overview displays annual benefits, personal visits and medications.
 - HR manages own-company employees, reviews visits/medications and assigns the current-year benefit plan.
@@ -66,4 +67,4 @@ The root GitLab pipeline is configured for frontend checks and backend PHP synta
 
 ## Remaining work
 
-Backend token-revoking logout; reproducible seed data; automated authorization coverage; deployment setup. Legacy backend Blade routes are retained during integration and require cleanup before deployment.
+Reproducible seed data; automated authorization coverage; deployment setup. Legacy backend Blade routes are retained during integration and require cleanup before deployment.
