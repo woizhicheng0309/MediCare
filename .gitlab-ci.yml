@@ -36,8 +36,8 @@ backend-tests:
   image: php:8.5-cli
   before_script:
     - apt-get update
-    - apt-get install -y git unzip libsqlite3-dev libonig-dev libxml2-dev
-    - docker-php-ext-install pdo_sqlite mbstring dom xml xmlwriter
+    - apt-get install -y --no-install-recommends git unzip
+    - php -m
     - curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php
     - php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
     - cd backend_laravel
