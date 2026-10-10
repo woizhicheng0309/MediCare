@@ -48,4 +48,16 @@ class AuthController extends Controller
     {
         return view('auth.login');
     }
+
+    public function logout(): JsonResponse
+    {
+        /** @var JWTGuard $guard */
+        $guard = auth('api');
+
+        $guard->logout();
+
+        return response()->json([
+            'message' => 'Logged out successfully.',
+        ]);
+    }
 }

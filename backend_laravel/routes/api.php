@@ -54,3 +54,7 @@ Route::patch('/helpdesk/visits/{visitId}/status', [HelpdeskVisitController::clas
     ->middleware('auth:api')
     ->whereNumber('visitId')
     ->name('api.helpdesk.visits.status');
+
+Route::post('/logout', [AuthController::class, 'logout'])
+    ->middleware('auth:api')
+    ->name('api.logout');
