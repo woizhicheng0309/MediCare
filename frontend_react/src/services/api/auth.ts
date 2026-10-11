@@ -6,7 +6,9 @@ export const UNAUTHORIZED_EVENT = 'auth:unauthorized';
 export interface LoginResponse { access_token: string; token_type: string; }
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) { super(message); this.name = 'ApiError'; this.status = status; }
+  // Retain Laravel field errors so forms can display them beside their inputs.
+  errors: Record<string, string[]>;
+  constructor(message: string, status: number, errors: Record<string, string[]> = {}) { super(message); this.name = 'ApiError'; this.status = status; this.errors = errors; }
 }
 export function getStoredToken(): string | null { return sessionStorage.getItem(AUTH_TOKEN_KEY); }
 export function setStoredToken(token: string): void { sessionStorage.setItem(AUTH_TOKEN_KEY, token); }
@@ -20,7 +22,7 @@ async function readResponse<T>(response: Response): Promise<T> {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }
     const validationError = data?.errors ? Object.values(data.errors).flat()[0] : null;
-    throw new ApiError(String(validationError ?? data?.message ?? data?.error ?? 'Request failed.'), response.status);
+    throw new ApiError(String(validationError ?? data?.message ?? data?.error ?? 'Request failed.'), response.status, data?.errors ?? {});
   }
   return data as T;
 }
