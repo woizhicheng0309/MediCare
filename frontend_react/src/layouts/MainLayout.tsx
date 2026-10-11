@@ -8,7 +8,7 @@ export default function MainLayout() {
     <SideMenu />
     <Box sx={{ flex: 1, minWidth: 0 }}>
       <Header />
-      <Box component="main" sx={{ p: { xs: 2, md: 4 }, maxWidth: 1320, mx: 'auto' }}><Outlet /></Box>
+      <Box component="main" sx={{ p: { xs: 2, md: 3 }, maxWidth: 1320, mx: 'auto' }}><Outlet /></Box>
     </Box>
   </Box>;
 }
