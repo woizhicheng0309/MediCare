@@ -189,4 +189,100 @@ class VisitMedicalDetailsTest extends TestCase
             'sick_leave_ended_on' => '2026-10-11',
         ]);
     }
+
+    // Save visit time and doctor details, then verify authorized readers.
+    public function test_time_and_doctor_details_are_saved_and_visible(): void
+    {
+        $payload = array_merge($this->visitPayload(), [
+            'visited_time' => '14:30',
+            'doctor_name' => 'Dr. Chen',
+            'doctor_title' => 'General Practitioner',
+        ]);
+
+        $response = $this->actingAs($this->employee, 'api')
+            ->postJson('/api/visits', $payload)
+            ->assertStatus(201)
+            ->assertJsonPath('visit.visited_time', '14:30')
+            ->assertJsonPath('visit.doctor_name', 'Dr. Chen')
+            ->assertJsonPath('visit.doctor_title', 'General Practitioner');
+
+        $this->assertDatabaseHas('visits', [
+            'id' => $response->json('visit.id'),
+            'user_id' => $this->employee->id,
+            'doctor_name' => 'Dr. Chen',
+            'doctor_title' => 'General Practitioner',
+        ]);
+
+        $employeeResponse = $this->getJson('/api/visits')
+            ->assertStatus(200)
+            ->assertJsonPath('visits.0.doctor_name', 'Dr. Chen')
+            ->assertJsonPath('visits.0.doctor_title', 'General Practitioner');
+
+        // MySQL may return seconds; SQLite preserves the submitted HH:MM value.
+        $this->assertSame(
+            '14:30',
+            substr($employeeResponse->json('visits.0.visited_time'), 0, 5)
+        );
+
+        $hrResponse = $this->actingAs($this->hr, 'api')
+            ->getJson("/api/hr/employees/{$this->employee->id}/visits")
+            ->assertStatus(200)
+            ->assertJsonPath('visits.0.doctor_name', 'Dr. Chen')
+            ->assertJsonPath('visits.0.doctor_title', 'General Practitioner');
+
+        $this->assertSame(
+            '14:30',
+            substr($hrResponse->json('visits.0.visited_time'), 0, 5)
+        );
+    }
+
+    // Unknown time and doctor details must remain null.
+    public function test_time_and_doctor_details_can_be_omitted(): void
+    {
+        $response = $this->actingAs($this->employee, 'api')
+            ->postJson('/api/visits', $this->visitPayload())
+            ->assertStatus(201)
+            ->assertJsonPath('visit.visited_time', null)
+            ->assertJsonPath('visit.doctor_name', null)
+            ->assertJsonPath('visit.doctor_title', null);
+
+        $this->assertDatabaseHas('visits', [
+            'id' => $response->json('visit.id'),
+            'visited_time' => null,
+            'doctor_name' => null,
+            'doctor_title' => null,
+        ]);
+    }
+
+    // Reject impossible times and formats other than HH:MM.
+    public function test_visit_time_rejects_invalid_values(): void
+    {
+        foreach (['24:00', '14:60', '14:30:00', 'afternoon'] as $time) {
+            $this->actingAs($this->employee, 'api')
+                ->postJson('/api/visits', array_merge($this->visitPayload(), [
+                    'visited_time' => $time,
+                ]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('visited_time');
+        }
+
+        $this->assertDatabaseCount('visits', 0);
+    }
+
+    // Reject non-string and oversized doctor details before saving.
+    public function test_doctor_details_reject_invalid_values(): void
+    {
+        foreach (['doctor_name', 'doctor_title'] as $field) {
+            foreach ([123, str_repeat('A', 256)] as $value) {
+                $this->actingAs($this->employee, 'api')
+                    ->postJson('/api/visits', array_merge($this->visitPayload(), [
+                        $field => $value,
+                    ]))
+                    ->assertStatus(422)
+                    ->assertJsonValidationErrors($field);
+            }
+        }
+
+        $this->assertDatabaseCount('visits', 0);
+    }
 }

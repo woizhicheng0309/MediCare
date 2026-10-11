@@ -61,6 +61,13 @@ class VisitController extends Controller
         // Diagnosis is optional, with a maximum length matching the database column.
         'diagnosis' => ['nullable', 'string', 'max:255'],
 
+        // Accept an optional 24-hour visit time, such as 14:30.
+        'visited_time' => ['nullable', 'date_format:H:i'],
+
+        // Limit doctor details to the database column length.
+        'doctor_name' => ['nullable', 'string', 'max:255'],
+        'doctor_title' => ['nullable', 'string', 'max:255'],
+
         // Leave dates must either both be absent or both be provided.
         'sick_leave_started_on' => [
             'nullable',
@@ -84,7 +91,10 @@ class VisitController extends Controller
         $visit->diagnosis = $data['diagnosis'] ?? null;
         $visit->sick_leave_started_on = $data['sick_leave_started_on'] ?? null;
         $visit->sick_leave_ended_on = $data['sick_leave_ended_on'] ?? null;
-
+        // Persist validated details; unknown values remain null.
+        $visit->visited_time = $data['visited_time'] ?? null;
+        $visit->doctor_name = $data['doctor_name'] ?? null;
+        $visit->doctor_title = $data['doctor_title'] ?? null;
         $user->visits()->save($visit);
 
         return response()->json([
