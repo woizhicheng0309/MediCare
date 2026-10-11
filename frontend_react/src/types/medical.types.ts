@@ -8,4 +8,7 @@ export interface Benefits { year: number; currency: string; plan_name: string; a
 export interface BenefitPlan { id: number; name: string; company_id: number; annual_limit_cents: number; }
 
 // Optional medical fields use null when the employee leaves them blank.
-export interface VisitSubmission { clinic: string; visited_on: string; covered_amount: number; visited_time: string | null; doctor_name: string | null; doctor_title: string | null; diagnosis: string | null; sick_leave_started_on: string | null; sick_leave_ended_on: string | null; }
+export interface VisitSubmission { medications: MedicationSubmission[]; clinic: string; visited_on: string; covered_amount: number; visited_time: string | null; doctor_name: string | null; doctor_title: string | null; diagnosis: string | null; sick_leave_started_on: string | null; sick_leave_ended_on: string | null; }
+
+// Medication inputs use whole TWD; the API converts them to integer cents.
+export interface MedicationSubmission { name: string; dosage: string | null; instructions: string | null; covered_amount: number; }

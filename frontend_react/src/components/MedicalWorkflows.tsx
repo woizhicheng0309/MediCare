@@ -9,6 +9,9 @@ import VisitTable from './VisitTable';
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Unable to complete this request.';
 const today = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
 
+// Stable row IDs keep input values attached to the correct medication after removal.
+interface MedicationDraft { id: string; name: string; dosage: string; instructions: string; amount: string; }
+
 export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
   const [clinic, setClinic] = useState('');
   const [date, setDate] = useState(today);
@@ -19,20 +22,38 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
   const [diagnosis, setDiagnosis] = useState('');
   const [leaveStart, setLeaveStart] = useState('');
   const [leaveEnd, setLeaveEnd] = useState('');
+  const [medications, setMedications] = useState<MedicationDraft[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [success, setSuccess] = useState<string | null>(null);
   const fieldError = (field: string) => fieldErrors[field]?.[0];
 
+  const medicationTotal = medications.reduce((total, item) => total + (Number(item.amount) || 0), 0);
+
+  // Array positions in Laravel errors change when a row is removed; discard stale errors.
+  function clearMedicationErrors() {
+    setFieldErrors((previous) => Object.fromEntries(Object.entries(previous).filter(([key]) => key !== 'medications' && !key.startsWith('medications.'))));
+  }
+  function updateMedication(id: string, field: 'name' | 'dosage' | 'instructions' | 'amount', value: string) {
+    setMedications((previous) => previous.map((item) => item.id === id ? { ...item, [field]: value } : item));
+    clearMedicationErrors();
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null); setFieldErrors({}); setSuccess(null);
     const coveredAmount = Number(amount);
-    if (!clinic.trim() || !amount || !Number.isSafeInteger(coveredAmount) || coveredAmount < 0) { setError('Enter a clinic and a whole TWD amount of zero or more.'); return; }
+    if (!clinic.trim() || !amount || !Number.isSafeInteger(coveredAmount) || coveredAmount < 0 || coveredAmount > 42949672) { setError('Enter a clinic and a whole TWD amount between 0 and 42,949,672.'); return; }
+    if (medications.some((item) => !item.name.trim() || !item.amount || !Number.isSafeInteger(Number(item.amount)) || Number(item.amount) < 0 || Number(item.amount) > 42949672)) {
+      setError('Each medication needs a name and a whole TWD amount between 0 and 42,949,672.'); return;
+    }
+    if (medicationTotal > coveredAmount) { setError('Medication covered amounts cannot exceed the visit covered amount.'); return; }
     setBusy(true);
     try {
       // Send absent optional fields as null; ownership and status remain server-controlled.
       const response = await recordVisit({
+        // Internal row IDs stay in the UI; the API assigns medication ownership.
+        medications: medications.map((item) => ({ name: item.name.trim(), dosage: item.dosage.trim() || null, instructions: item.instructions.trim() || null, covered_amount: Number(item.amount) })),
         clinic: clinic.trim(), visited_on: date, covered_amount: coveredAmount,
         visited_time: visitTime || null,
         doctor_name: doctorName.trim() || null,
@@ -43,6 +64,7 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
       });
       setSuccess(response.message);
       setClinic(''); setAmount(''); setVisitTime(''); setDoctorName(''); setDoctorTitle(''); setDiagnosis(''); setLeaveStart(''); setLeaveEnd('');
+      setMedications([]);
       onSaved();
     }
     catch (caught) {
@@ -64,7 +86,7 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
       <TextField label="Doctor name" fullWidth value={doctorName} disabled={busy} onChange={(event) => setDoctorName(event.target.value)} error={Boolean(fieldError('doctor_name'))} helperText={fieldError('doctor_name') ?? 'Optional'} slotProps={{ htmlInput: { maxLength: 255 } }} />
       <TextField label="Doctor title" fullWidth value={doctorTitle} disabled={busy} onChange={(event) => setDoctorTitle(event.target.value)} error={Boolean(fieldError('doctor_title'))} helperText={fieldError('doctor_title') ?? 'Optional · e.g. General Practitioner'} slotProps={{ htmlInput: { maxLength: 255 } }} />
     </Stack>
-    <TextField label="Covered amount (TWD)" type="number" required value={amount} disabled={busy} onChange={(event) => setAmount(event.target.value)} error={Boolean(fieldError('covered_amount'))} helperText={fieldError('covered_amount')} slotProps={{ htmlInput: { min: 0, step: 1 } }} />
+    <TextField label="Covered amount (TWD)" type="number" required value={amount} disabled={busy} onChange={(event) => setAmount(event.target.value)} error={Boolean(fieldError('covered_amount'))} helperText={fieldError('covered_amount')} slotProps={{ htmlInput: { min: 0, max: 42949672, step: 1 } }} />
     <TextField label="Diagnosis" value={diagnosis} disabled={busy} onChange={(event) => setDiagnosis(event.target.value)} error={Boolean(fieldError('diagnosis'))} helperText={fieldError('diagnosis') ?? 'Optional'} slotProps={{ htmlInput: { maxLength: 255 } }} />
     {/* Date inputs provide early feedback; the API still validates both dates. */}
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -72,6 +94,28 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
       <TextField label="Sick leave end date" type="date" fullWidth required={Boolean(leaveStart)} value={leaveEnd} disabled={busy} onChange={(event) => setLeaveEnd(event.target.value)} error={Boolean(fieldError('sick_leave_ended_on'))} helperText={fieldError('sick_leave_ended_on')} slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: leaveStart || undefined } }} />
     </Stack>
     <Typography variant="body2" color="text.secondary">Sick leave is optional. If provided, enter both dates; the end date must be on or after the start date.</Typography>
+    {/* Medication costs are a breakdown of visit coverage, never an extra deduction. */}
+    <Stack spacing={2}>
+      <Typography variant="h6">Medications</Typography>
+      <Typography variant="body2" color="text.secondary">Optional. Medication covered amounts are already included in the visit covered amount.</Typography>
+      {fieldError('medications') && <Alert severity="error">{fieldError('medications')}</Alert>}
+      {medications.map((item, index) => <Paper component="fieldset" variant="outlined" key={item.id} sx={{ p: 2, m: 0, minWidth: 0 }}>
+        <Typography component="legend" variant="subtitle2">Medication {index + 1}</Typography>
+        <Stack spacing={2}>
+          <TextField label="Medication name" required value={item.name} disabled={busy} onChange={(event) => updateMedication(item.id, 'name', event.target.value)} error={Boolean(fieldError(`medications.${index}.name`))} helperText={fieldError(`medications.${index}.name`)} slotProps={{ htmlInput: { maxLength: 255 } }} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField label="Dosage" fullWidth value={item.dosage} disabled={busy} onChange={(event) => updateMedication(item.id, 'dosage', event.target.value)} error={Boolean(fieldError(`medications.${index}.dosage`))} helperText={fieldError(`medications.${index}.dosage`) ?? 'Optional · e.g. 500 mg'} slotProps={{ htmlInput: { maxLength: 255 } }} />
+            <TextField label="Medication covered amount (TWD)" type="number" fullWidth required value={item.amount} disabled={busy} onChange={(event) => updateMedication(item.id, 'amount', event.target.value)} error={Boolean(fieldError(`medications.${index}.covered_amount`))} helperText={fieldError(`medications.${index}.covered_amount`)} slotProps={{ htmlInput: { min: 0, max: 42949672, step: 1 } }} />
+          </Stack>
+          <TextField label="Instructions" multiline minRows={2} value={item.instructions} disabled={busy} onChange={(event) => updateMedication(item.id, 'instructions', event.target.value)} error={Boolean(fieldError(`medications.${index}.instructions`))} helperText={fieldError(`medications.${index}.instructions`) ?? 'Optional'} slotProps={{ htmlInput: { maxLength: 2000 } }} />
+          {fieldError(`medications.${index}`) && <Alert severity="error">{fieldError(`medications.${index}`)}</Alert>}
+          <Button variant="outlined" disabled={busy} aria-label={`Remove medication ${index + 1}`} onClick={() => { setMedications((previous) => previous.filter((row) => row.id !== item.id)); clearMedicationErrors(); }}>Remove medication</Button>
+        </Stack>
+      </Paper>)}
+      <Typography variant="body2" aria-live="polite">Medication coverage subtotal: TWD {medicationTotal.toLocaleString('en-US')}</Typography>
+      {amount && medicationTotal > Number(amount) && <Alert severity="warning">Medication coverage exceeds the visit covered amount.</Alert>}
+      <Button variant="outlined" disabled={busy || medications.length >= 50} onClick={() => { setMedications((previous) => [...previous, { id: crypto.randomUUID(), name: '', dosage: '', instructions: '', amount: '' }]); clearMedicationErrors(); }}>Add medication</Button>
+    </Stack>
     <Button type="submit" variant="contained" disabled={busy}>{busy ? 'Saving...' : 'Save visit'}</Button>
   </Stack></Paper>;
 }
