@@ -18,11 +18,13 @@ class Visit extends Model
         return $this->hasMany(Medication::class);
     }
 
-    // Convert the stored review timestamp into a Carbon date-time object.
-    protected function casts(): array // protected function can only called internally or inherited class
+    // Keep leave dates as YYYY-MM-DD in API responses, without a time component.
+    protected function casts(): array
     {
         return [
             'reviewed_at' => 'datetime',
+            'sick_leave_started_on' => 'date:Y-m-d',
+            'sick_leave_ended_on' => 'date:Y-m-d',
         ];
     }
 
