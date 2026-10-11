@@ -10,9 +10,10 @@ export class ApiError extends Error {
   errors: Record<string, string[]>;
   constructor(message: string, status: number, errors: Record<string, string[]> = {}) { super(message); this.name = 'ApiError'; this.status = status; this.errors = errors; }
 }
-export function getStoredToken(): string | null { return sessionStorage.getItem(AUTH_TOKEN_KEY); }
-export function setStoredToken(token: string): void { sessionStorage.setItem(AUTH_TOKEN_KEY, token); }
-export function clearStoredToken(): void { sessionStorage.removeItem(AUTH_TOKEN_KEY); }
+// Match the Demo's token persistence across browser sessions.
+export function getStoredToken(): string | null { return localStorage.getItem(AUTH_TOKEN_KEY); }
+export function setStoredToken(token: string): void { localStorage.setItem(AUTH_TOKEN_KEY, token); }
+export function clearStoredToken(): void { localStorage.removeItem(AUTH_TOKEN_KEY); }
 
 async function readResponse<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
@@ -49,6 +50,12 @@ export function getCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
   return fetchWithAuth<CurrentUser>('/me', { signal });
 }
 
-export function logout(): Promise<{ message: string }> {
-  return fetchWithAuth<{ message: string }>('/logout', { method: 'POST' });
+// Use the captured token because local storage has already been cleared.
+export async function logout(token: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/logout`, {
+    method: 'POST', headers: { ...JSON_HEADERS, Authorization: `Bearer ${token}` },
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new ApiError(data?.message ?? 'Unable to revoke the session.', response.status);
+  return data as { message: string };
 }

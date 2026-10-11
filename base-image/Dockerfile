@@ -1,6 +1,6 @@
-# PHP 8.4 + nginx + supervisord 的基底映像檔
+# PHP 8.5 + nginx + supervisord runtime image
 # prod：正式環境用；dev：本機開發用，多了 composer、xdebug
-FROM php:8.4-fpm-trixie AS prod
+FROM php:8.5-fpm-trixie AS prod
 
 # nginx、supervisor。Debian 套件附的範例站台和 php 映像檔的 /var/www/html 用不到
 RUN set -eux; \

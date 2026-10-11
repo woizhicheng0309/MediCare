@@ -1,11 +1,3 @@
-<?php // starting of PHP codes
+<?php
 
-use Illuminate\Support\Facades\Route; // import Route, it decides who to handle this request
-use App\Http\Controllers\BenefitController;
-use App\Http\Controllers\AuthController;
-
-Route::get('/benefits', [BenefitController::class, 'index'])
-    ->name('benefits.index');
-
-Route::get('/login', [AuthController::class, 'showLogin'])
-    ->name('login');
+// Browser pages are served by React; Laravel exposes API and health routes.

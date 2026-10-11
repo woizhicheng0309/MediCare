@@ -19,13 +19,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    setLoggingOut(true); setLogoutError(null);
+    // Capture credentials before clearing React state and persistent storage.
+    const sessionToken = getStoredToken();
+    clearSession();
+    if (!sessionToken) return;
+    setLoggingOut(true);
     try {
-      await apiLogout();
-      clearSession();
+      await apiLogout(sessionToken);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) clearSession();
-      else setLogoutError(error instanceof Error ? error.message : 'Unable to sign out. Please try again.');
+      // An expired token is already unusable; other failures remain visible on login.
+      if (!(error instanceof ApiError && error.status === 401)) {
+        setLogoutError('Signed out locally, but the server session could not be revoked.');
+      }
     } finally {
       setLoggingOut(false);
     }
