@@ -1,0 +1,23 @@
+# Keep local credentials and dependencies outside the build context.
+.env
+.env.*
+!.env.example
+auth.json
+vendor
+node_modules
+.git
+.DS_Store
+
+# Exclude generated files and local runtime data.
+.phpunit.cache
+.phpunit.result.cache
+public/build
+public/hot
+public/storage
+bootstrap/cache/*.php
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/*.key
+database/*.sqlite*
