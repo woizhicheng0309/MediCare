@@ -1,0 +1,27 @@
+# The backend build uses the repository root to reuse the runtime reference.
+**
+!base-image/
+!base-image/**
+!backend_laravel/
+!backend_laravel/**
+**/.env
+**/.env.*
+**/auth.json
+**/vendor
+**/node_modules
+**/.git
+**/.DS_Store
+**/.phpunit*
+backend_laravel/public/build
+backend_laravel/public/hot
+backend_laravel/public/storage
+backend_laravel/bootstrap/cache/*.php
+backend_laravel/storage/logs/*
+backend_laravel/storage/framework/cache/*
+backend_laravel/storage/framework/sessions/*
+backend_laravel/storage/framework/views/*
+backend_laravel/storage/*.key
+backend_laravel/database/*.sqlite*
+
+# Swagger is generated per application image/runtime, never copied from local storage.
+backend_laravel/storage/api-docs

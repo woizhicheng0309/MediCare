@@ -7,3 +7,6 @@
 /frontend_react/dist/
 /backend_laravel/vendor/
 /docs/MediCare_roles.md
+
+# Generated Swagger documents.
+/backend_laravel/storage/api-docs/

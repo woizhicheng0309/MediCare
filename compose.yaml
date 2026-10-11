@@ -19,10 +19,12 @@ services:
       start_period: 30s
 
   backend:
-    image: medicare-backend:local
+    image: medicare-backend:dev
     build:
-      context: ./backend_laravel
-    environment:
+      context: .
+      dockerfile: backend_laravel/Dockerfile
+      target: dev
+    environment: &backend_environment
       APP_NAME: MediCare
       APP_ENV: local
       APP_DEBUG: "true"
@@ -40,25 +42,28 @@ services:
       CACHE_STORE: database
       SESSION_DRIVER: database
       QUEUE_CONNECTION: sync
+    volumes:
+      # Bind source and host-installed vendor for immediate local code updates.
+      - ./backend_laravel:/var/www
+      - ./backend_laravel/docker/entrypoint.d:/docker-entrypoint.d:ro
     ports:
-      - "127.0.0.1:8003:8000"
+      - "127.0.0.1:8003:8080"
     depends_on:
       db:
         condition: service_healthy
+      migration:
+        condition: service_completed_successfully
 
-  frontend:
-    build:
-      context: ./frontend_react
-      target: build
-    # Override the image command to run Vite for local integration.
-    command: ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5174"]
-    environment:
-      # Vite forwards browser /api requests to the backend container.
-      BACKEND_URL: http://backend:8000
-    ports:
-      - "127.0.0.1:5175:5174"
+  # This job must finish successfully before nginx/PHP-FPM starts serving requests.
+  migration:
+    image: medicare-backend:dev
+    environment: *backend_environment
+    volumes:
+      - ./backend_laravel:/var/www
+    command: ["sh", "/var/www/db-migrate-seed.sh"]
     depends_on:
-      - backend
+      db:
+        condition: service_healthy
 
 volumes:
   mysql_data:

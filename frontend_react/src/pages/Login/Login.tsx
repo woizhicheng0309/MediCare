@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/useAuth';
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loginError, clearLoginError } = useAuth();
+  const { login, loginError, clearLoginError, logoutError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,6 +28,7 @@ export default function Login() {
           <Typography color="text.secondary" sx={{ mt: 1 }}>Sign in to your medical benefits portal.</Typography></Box>
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={2.5}>
+            {logoutError && <Alert severity="warning">{logoutError}</Alert>}
             {loginError && <Alert severity="error">{loginError}</Alert>}
             <TextField label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required fullWidth />
             <TextField label="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required fullWidth />
