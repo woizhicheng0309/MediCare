@@ -13,6 +13,9 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
   const [clinic, setClinic] = useState('');
   const [date, setDate] = useState(today);
   const [amount, setAmount] = useState('');
+  const [visitTime, setVisitTime] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [doctorTitle, setDoctorTitle] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [leaveStart, setLeaveStart] = useState('');
   const [leaveEnd, setLeaveEnd] = useState('');
@@ -31,12 +34,15 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
       // Send absent optional fields as null; ownership and status remain server-controlled.
       const response = await recordVisit({
         clinic: clinic.trim(), visited_on: date, covered_amount: coveredAmount,
+        visited_time: visitTime || null,
+        doctor_name: doctorName.trim() || null,
+        doctor_title: doctorTitle.trim() || null,
         diagnosis: diagnosis.trim() || null,
         sick_leave_started_on: leaveStart || null,
         sick_leave_ended_on: leaveEnd || null,
       });
       setSuccess(response.message);
-      setClinic(''); setAmount(''); setDiagnosis(''); setLeaveStart(''); setLeaveEnd('');
+      setClinic(''); setAmount(''); setVisitTime(''); setDoctorName(''); setDoctorTitle(''); setDiagnosis(''); setLeaveStart(''); setLeaveEnd('');
       onSaved();
     }
     catch (caught) {
@@ -52,6 +58,12 @@ export function EmployeeVisitForm({ onSaved }: { onSaved: () => void }) {
     {error && <Alert severity="error">{error}</Alert>}{success && <Alert severity="success">{success}</Alert>}
     <TextField label="Clinic name" required value={clinic} disabled={busy} onChange={(event) => setClinic(event.target.value)} error={Boolean(fieldError('clinic'))} helperText={fieldError('clinic')} slotProps={{ htmlInput: { maxLength: 255 } }} />
     <TextField label="Visit date" type="date" required value={date} disabled={busy} onChange={(event) => setDate(event.target.value)} error={Boolean(fieldError('visited_on'))} helperText={fieldError('visited_on')} slotProps={{ inputLabel: { shrink: true } }} />
+    {/* Native time input submits HH:MM; unknown doctor details remain optional. */}
+    <TextField label="Visit time" type="time" value={visitTime} disabled={busy} onChange={(event) => setVisitTime(event.target.value)} error={Boolean(fieldError('visited_time'))} helperText={fieldError('visited_time') ?? 'Optional · clinic local time'} slotProps={{ inputLabel: { shrink: true }, htmlInput: { step: 60 } }} />
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+      <TextField label="Doctor name" fullWidth value={doctorName} disabled={busy} onChange={(event) => setDoctorName(event.target.value)} error={Boolean(fieldError('doctor_name'))} helperText={fieldError('doctor_name') ?? 'Optional'} slotProps={{ htmlInput: { maxLength: 255 } }} />
+      <TextField label="Doctor title" fullWidth value={doctorTitle} disabled={busy} onChange={(event) => setDoctorTitle(event.target.value)} error={Boolean(fieldError('doctor_title'))} helperText={fieldError('doctor_title') ?? 'Optional · e.g. General Practitioner'} slotProps={{ htmlInput: { maxLength: 255 } }} />
+    </Stack>
     <TextField label="Covered amount (TWD)" type="number" required value={amount} disabled={busy} onChange={(event) => setAmount(event.target.value)} error={Boolean(fieldError('covered_amount'))} helperText={fieldError('covered_amount')} slotProps={{ htmlInput: { min: 0, step: 1 } }} />
     <TextField label="Diagnosis" value={diagnosis} disabled={busy} onChange={(event) => setDiagnosis(event.target.value)} error={Boolean(fieldError('diagnosis'))} helperText={fieldError('diagnosis') ?? 'Optional'} slotProps={{ htmlInput: { maxLength: 255 } }} />
     {/* Date inputs provide early feedback; the API still validates both dates. */}

@@ -23,7 +23,10 @@ export default function VisitTable({ visits, includeEmployee = false, onDecision
           {/* Small screens show labeled fields in a card instead of a wide table. */}
           <TableRow sx={{ display: { xs: 'grid', sm: 'table-row' }, gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', '& > td': { borderBottom: 0, display: { xs: 'block', sm: 'table-cell' }, py: 1.5 } }}>
             {includeEmployee && <TableCell>{mobileLabel('Employee / company')}{visit.user?.name ?? 'Unassigned'}<Typography variant="caption" sx={{ display: 'block' }} color="text.secondary">{visit.user?.company?.name ?? 'No company'}</Typography></TableCell>}
-            <TableCell sx={{ whiteSpace: 'nowrap' }}>{mobileLabel('Visit date')}{visit.visited_on}</TableCell>
+            <TableCell sx={{ whiteSpace: 'nowrap' }}>{mobileLabel('Visit date')}{visit.visited_on}
+              {/* MySQL may include seconds; display clinic local time as HH:MM. */}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{visit.visited_time ? visit.visited_time.slice(0, 5) : 'Time not recorded'}</Typography>
+            </TableCell>
             <TableCell>{mobileLabel('Clinic')}{visit.clinic}</TableCell>
             <TableCell sx={{ whiteSpace: 'nowrap' }}>{mobileLabel('Covered amount')}{money(visit.covered_amount_cents / 100)}</TableCell>
             <TableCell>{mobileLabel('Status')}<Chip size="small" label={visit.status} color={visit.status === 'approved' ? 'success' : visit.status === 'rejected' ? 'error' : 'warning'} /></TableCell>
@@ -36,7 +39,8 @@ export default function VisitTable({ visits, includeEmployee = false, onDecision
           </TableRow>
           <TableRow sx={{ display: { xs: 'block', sm: 'table-row' }, bgcolor: 'action.hover' }}>
             <TableCell colSpan={columns} sx={{ display: { xs: 'block', sm: 'table-cell' }, py: 1.5 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)' }, gap: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
+                <Box><Typography variant="caption" color="text.secondary">Doctor</Typography><Typography variant="body2">{visit.doctor_name || '—'}</Typography>{visit.doctor_title && <Typography variant="body2" color="text.secondary">{visit.doctor_title}</Typography>}</Box>
                 <Box><Typography variant="caption" color="text.secondary">Diagnosis</Typography><Typography variant="body2">{visit.diagnosis || '—'}</Typography></Box>
                 {/* Render date-only API strings without converting timezones. */}
                 <Box><Typography variant="caption" color="text.secondary">Sick leave</Typography><Typography variant="body2">{visit.sick_leave_started_on && visit.sick_leave_ended_on ? <><Box component="span" sx={{ whiteSpace: 'nowrap' }}>{visit.sick_leave_started_on}</Box>{' – '}<Box component="span" sx={{ whiteSpace: 'nowrap' }}>{visit.sick_leave_ended_on}</Box></> : '—'}</Typography></Box>
