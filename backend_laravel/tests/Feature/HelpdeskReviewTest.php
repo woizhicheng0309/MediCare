@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Visit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Illuminate\Support\Carbon;
 
 class HelpdeskReviewTest extends TestCase
 {
@@ -19,6 +20,8 @@ class HelpdeskReviewTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp(); // setUp will run before test everytime to get test accounts ready, initialize Laravel test env
+        // Fix review time so timestamp assertions are deterministic.
+        $this->travelTo(Carbon::parse('2026-10-11 12:00:00'));
 
         $medicare = new Company();
         $medicare->name = 'MediCare';
@@ -43,7 +46,7 @@ class HelpdeskReviewTest extends TestCase
         ]);
     }
 
-    // Helpdesk can approve a pending visit belonging to an employee.
+    // Review identity and time must come from the server, even if input is forged.
     public function test_helpdesk_can_approve_pending_visit(): void
     {
         $visit = $this->createVisit();
@@ -51,17 +54,24 @@ class HelpdeskReviewTest extends TestCase
         $this->actingAs($this->helpdesk, 'api')
             ->patchJson("/api/helpdesk/visits/{$visit->id}/status", [
                 'status' => 'approved',
+                'reviewed_by' => $this->employee->id,
+                'reviewed_at' => '2000-01-01 00:00:00',
             ])
             ->assertStatus(200)
-            ->assertJsonPath('visit.status', 'approved');
+            ->assertJsonPath('visit.status', 'approved')
+            ->assertJsonPath('visit.reviewed_by', $this->helpdesk->id)
+            ->assertJsonPath('visit.reviewed_at', now()->toJSON());
 
+        // Verify that the actual reviewer and server time were persisted.
         $this->assertDatabaseHas('visits', [
             'id' => $visit->id,
             'status' => 'approved',
+            'reviewed_by' => $this->helpdesk->id,
+            'reviewed_at' => now()->toDateTimeString(),
         ]);
     }
 
-    // Helpdesk can reject a pending visit belonging to an employee.
+    // Rejected visits must record the reviewer and review time as well.
     public function test_helpdesk_can_reject_pending_visit(): void
     {
         $visit = $this->createVisit();
@@ -71,11 +81,15 @@ class HelpdeskReviewTest extends TestCase
                 'status' => 'rejected',
             ])
             ->assertStatus(200)
-            ->assertJsonPath('visit.status', 'rejected');
+            ->assertJsonPath('visit.status', 'rejected')
+            ->assertJsonPath('visit.reviewed_by', $this->helpdesk->id)
+            ->assertJsonPath('visit.reviewed_at', now()->toJSON());
 
         $this->assertDatabaseHas('visits', [
             'id' => $visit->id,
             'status' => 'rejected',
+            'reviewed_by' => $this->helpdesk->id,
+            'reviewed_at' => now()->toDateTimeString(),
         ]);
     }
 
@@ -94,6 +108,9 @@ class HelpdeskReviewTest extends TestCase
         $this->assertDatabaseHas('visits', [
             'id' => $visit->id,
             'status' => 'pending',
+            // Failed reviews must not populate audit fields.
+            'reviewed_by' => null,
+            'reviewed_at' => null,
         ]);
     }
 
@@ -112,13 +129,17 @@ class HelpdeskReviewTest extends TestCase
         $this->assertDatabaseHas('visits', [
             'id' => $visit->id,
             'status' => 'pending',
+            // Failed reviews must not populate audit fields.
+            'reviewed_by' => null,
+            'reviewed_at' => null,
         ]);
     }
 
-    // A second review must not overwrite the first review decision.
+    // A repeated review must preserve the original decision and audit fields.
     public function test_processed_visit_cannot_be_reviewed_again(): void
     {
         $visit = $this->createVisit();
+        $originalReviewTime = now()->toDateTimeString();
 
         $this->actingAs($this->helpdesk, 'api')
             ->patchJson("/api/helpdesk/visits/{$visit->id}/status", [
@@ -126,15 +147,27 @@ class HelpdeskReviewTest extends TestCase
             ])
             ->assertStatus(200);
 
-        // Attempt to reverse the decision after the visit has been processed.
-        $this->patchJson("/api/helpdesk/visits/{$visit->id}/status", [
-            'status' => 'rejected',
-        ])
+        $anotherReviewer = User::factory()->create([
+            'name' => 'Dana Lee',
+            'email' => 'dana@medicare.helpdesk',
+            'role' => 'helpdesk',
+            'company_id' => $this->helpdesk->company_id,
+        ]);
+
+        // Change both the reviewer and time to detect accidental audit overwrites.
+        $this->travel(1)->hours();
+
+        $this->actingAs($anotherReviewer, 'api')
+            ->patchJson("/api/helpdesk/visits/{$visit->id}/status", [
+                'status' => 'rejected',
+            ])
             ->assertStatus(409);
 
         $this->assertDatabaseHas('visits', [
             'id' => $visit->id,
             'status' => 'approved',
+            'reviewed_by' => $this->helpdesk->id,
+            'reviewed_at' => $originalReviewTime,
         ]);
     }
 
@@ -157,6 +190,9 @@ class HelpdeskReviewTest extends TestCase
             'id' => $visit->id,
             'user_id' => null,
             'status' => 'pending',
+            // Failed reviews must not populate audit fields.
+            'reviewed_by' => null,
+            'reviewed_at' => null,
         ]);
     }
 

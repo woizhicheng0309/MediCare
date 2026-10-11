@@ -35,7 +35,7 @@ class HelpdeskVisitController extends Controller
             'status' => ['required', 'in:approved,rejected'],
         ]);
 
-        $visit = DB::transaction(function () use ($visitId, $data) {
+        $visit = DB::transaction(function () use ($visitId, $data, $user) {
             $visit = Visit::where('id', $visitId)
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -52,7 +52,11 @@ class HelpdeskVisitController extends Controller
                 'This visit must belong to an employee.'
             );
 
+            // Save the decision and its audit fields together.
+            // Reviewer identity and time come from the server, not request input.
             $visit->status = $data['status'];
+            $visit->reviewed_by = $user->id;
+            $visit->reviewed_at = now();
             $visit->save();
 
             return $visit;
