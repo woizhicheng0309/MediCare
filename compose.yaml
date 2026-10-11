@@ -1,0 +1,64 @@
+name: medicare-local
+
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: medicare_docker
+      MYSQL_USER: medicare
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD}
+    volumes:
+      # Keep database data when containers are recreated.
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  backend:
+    image: medicare-backend:local
+    build:
+      context: ./backend_laravel
+    environment:
+      APP_NAME: MediCare
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8003
+      APP_KEY: ${APP_KEY:?Set APP_KEY}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      # Compose resolves service names inside its network.
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: medicare_docker
+      DB_USERNAME: medicare
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      CACHE_STORE: database
+      SESSION_DRIVER: database
+      QUEUE_CONNECTION: sync
+    ports:
+      - "127.0.0.1:8003:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend_react
+      target: build
+    # Override the image command to run Vite for local integration.
+    command: ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5174"]
+    environment:
+      # Vite forwards browser /api requests to the backend container.
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "127.0.0.1:5175:5174"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
