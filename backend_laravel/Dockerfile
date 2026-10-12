@@ -85,7 +85,8 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 COPY backend_laravel/composer.json backend_laravel/composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress
 COPY backend_laravel/ ./
-RUN mkdir -p storage/app/private storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+# Create Laravel directories explicitly because Git does not preserve empty folders.
+RUN mkdir -p resources/views storage/app/private storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && composer dump-autoload --optimize --no-dev \
     && php artisan route:cache \
     && php artisan view:cache
