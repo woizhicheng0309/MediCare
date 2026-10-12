@@ -1,6 +1,7 @@
 stages:
   - check
   - secret-detection
+  - build
 
 frontend-check:
   stage: check
@@ -56,3 +57,29 @@ variables:
 
 secret_detection:
   stage: secret-detection
+
+# Shared Docker client and daemon settings for image build jobs.
+.docker-build:
+  stage: build
+  image: docker:29
+  services:
+    - name: docker:29-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    # Confirm that the job can connect to its Docker daemon.
+    - docker info
+
+backend-image-build:
+  extends: .docker-build
+  script:
+    # Root context includes both backend code and base-image configuration.
+    - docker build --target prod -f backend_laravel/Dockerfile -t "medicare-backend:$CI_COMMIT_SHA" .
+
+frontend-image-build:
+  extends: .docker-build
+  script:
+    # The frontend Dockerfile builds React and packages its output with nginx.
+    - docker build -t "medicare-frontend:$CI_COMMIT_SHA" ./frontend_react
