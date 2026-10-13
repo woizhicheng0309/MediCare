@@ -54,6 +54,9 @@ include:
 
 variables:
   SECRET_DETECTION_ENABLED: 'true'
+  GCP_PROJECT_ID: medicare-19980309
+  GCP_REGION: asia-east1
+  GCP_REPOSITORY: apps
 
 secret_detection:
   stage: secret-detection
@@ -83,3 +86,36 @@ frontend-image-build:
   script:
     # The frontend Dockerfile builds React and packages its output with nginx.
     - docker build -t "medicare-frontend:$CI_COMMIT_SHA" ./frontend_react
+
+# Publish jobs require a protected main branch and manual approval.
+.registry-publish:
+  extends: .docker-build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+      allow_failure: true
+    - when: never
+  before_script:
+    - docker info
+    # Pass the Base64 credential through stdin without printing it.
+    - |
+      printf '%s' "$GCP_SERVICE_ACCOUNT_KEY" |
+        docker login \
+          -u _json_key_base64 \
+          --password-stdin \
+          "https://${GCP_REGION}-docker.pkg.dev"
+
+backend-image-publish:
+  extends: .registry-publish
+  script:
+    # Build and push in the same job because each job has its own daemon.
+    - IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/backend:${CI_COMMIT_SHA}"
+    - docker build --target prod -f backend_laravel/Dockerfile -t "$IMAGE" .
+    - docker push "$IMAGE"
+
+frontend-image-publish:
+  extends: .registry-publish
+  script:
+    - IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/frontend:${CI_COMMIT_SHA}"
+    - docker build -t "$IMAGE" ./frontend_react
+    - docker push "$IMAGE"
