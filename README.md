@@ -24,35 +24,34 @@ Demo submissions and reviews write to the selected environment's database. Dev a
 
 ```text
 frontend_react/    React + TypeScript + Vite + MUI
-backend_laravel/   Existing MediCare Laravel 13 + MySQL + JWT API
-base-image/        Senior-provided Docker runtime reference
-docs/              Senior-provided learning runbook and integration notes
+backend_laravel/   Laravel 13 + MySQL + JWT API
+base-image/        PHP-FPM, nginx and Supervisor configuration
+docs/              Product requirements and technical documentation
 compose.yaml      Local MySQL, migration and nginx/PHP-FPM services
 .gitlab-ci.yml    Checks, image publishing and Cloud Run deployments
 ```
 
-The frontend structure and theme are adapted from the senior-provided PHPdemo template. Business logic, authentication contracts, models and migrations come from the existing MediCare backend. This repository preserves that backend's Git history and is independent of the original development directory.
+The React frontend consumes the Laravel JWT API. Controllers coordinate HTTP requests, FormRequests validate input and authorization, and Services handle business operations and scoped queries. MySQL stores company, benefit, visit and medication records.
 
-## Learning references
+## Project documentation
 
-The senior-provided build and operations runbook is preserved in `docs/runbook`. The `base-image` directory contains the PHP-FPM, nginx and Supervisor Docker runtime reference. Read [integration notes](docs/INTEGRATION-NOTES.md) before applying template commands: the references describe different authentication contracts and deployment resources. The copied base-image CI is not activated; the root `.gitlab-ci.yml` implements this project's image publishing and Cloud Run deployments. The backend Dockerfile builds PHP 8.5 runtime, dev, build and prod stages directly, reusing the reference configuration without pulling a separately published custom base image.
+[Product requirements](docs/PRD.md) and [system requirements](docs/SRS.md) describe the application scope. The `base-image` directory contains PHP-FPM, nginx and Supervisor configuration used by the backend Dockerfile. The root `.gitlab-ci.yml` defines validation, image publishing and Cloud Run deployments.
 
-## Integration checkpoint
+## Features
 
-- Email/password login uses the unchanged `access_token` response.
+- Email/password login returns a JWT as `access_token`.
 - Sign out captures the JWT, clears the browser session, then revokes the captured JWT through Laravel. A failed revocation is reported on the login page.
 - `/api/me` restores the authenticated user's profile and role.
 - Employee overview displays annual benefits, personal visits and medications.
 - HR manages own-company employees, reviews visits/medications and assigns the current-year benefit plan.
 - Helpdesk reviews pending visits across client companies and approves or rejects submissions.
-- Existing backend APIs retain visit submission, annual plan assignment and approval/rejection functionality.
-- React visit submission, plan assignment and approval/rejection forms use those same protected APIs.
+- React forms submit visits, assign benefit plans and review submissions through protected APIs.
 - Visits support diagnosis, sick leave dates, visit time, doctor details and multiple medications.
 - Visit records support ascending and descending sorting.
-- Legacy Blade pages and web routes have been removed; React provides browser pages.
-- JWT persistence uses localStorage, matching the Demo.
+- React provides browser pages; Laravel exposes the application API.
+- JWT persistence uses localStorage.
 - Controllers coordinate HTTP responses, FormRequests validate input/roles, and Services handle scoped queries and business operations.
-- Swagger documents all existing APIs, with email login and JWT Bearer authorization.
+- Swagger documents the application APIs, with email login and JWT Bearer authorization.
 
 Only approved visits count toward annual usage. Medication costs are included in visit covered amounts and are not deducted twice. Each employee has one plan assignment per calendar year; changing plans preserves that year's usage. Display/input use whole TWD and storage uses integer cents.
 
@@ -60,7 +59,7 @@ Only approved visits count toward annual usage. Medication costs are included in
 
 Requirements: Docker Engine and Compose, Node 24 and pnpm as pinned in the frontend manifest. The host backend `.env` remains independent; Compose injects its own database and keys into the containers.
 
-Run commands from the repository root. Keep the existing ignored `.env.docker` with `APP_KEY`, `JWT_SECRET`, `DB_PASSWORD` and `MYSQL_ROOT_PASSWORD`. Do not regenerate existing keys or print resolved Compose configuration.
+Run commands from the repository root. Keep the ignored `.env.docker` with `APP_KEY`, `JWT_SECRET`, `DB_PASSWORD` and `MYSQL_ROOT_PASSWORD`. Do not regenerate existing keys or print resolved Compose configuration.
 
 ```bash
 # Build the dev stage, not the final production stage.
@@ -89,7 +88,7 @@ docker compose --env-file .env.docker up -d --build --remove-orphans
 docker compose --env-file .env.docker ps -a
 ```
 
-Compose starts MySQL, waits for its health check, runs the one-shot migration service, then starts the backend after migration succeeds. Local initialization also runs the existing repeatable sample seeders. Deployment migrations do not run sample seeders; cloud demo data was initialized explicitly in each environment. A migration failure blocks backend startup; inspect it with `docker compose --env-file .env.docker logs migration`.
+Compose starts MySQL, waits for its health check, runs the one-shot migration service, then starts the backend after migration succeeds. Local initialization also runs repeatable sample seeders. Deployment migrations do not run sample seeders; cloud demo data was initialized explicitly in each environment. A migration failure blocks backend startup; inspect it with `docker compose --env-file .env.docker logs migration`.
 
 nginx listens inside the backend container on port 8080, serves public files and forwards Laravel requests to PHP-FPM through a Unix socket. Supervisor manages both processes. Backend source and vendor are bind-mounted at `/var/www`, so source changes do not require image rebuilds. Runtime/Dockerfile changes do require rebuilding.
 
@@ -101,9 +100,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open http://127.0.0.1:5174. Vite forwards `/api` and `/docs` to http://127.0.0.1:8003. Swagger UI is available at http://127.0.0.1:5174/api/doc; it loads its OpenAPI document through `/docs`. There is no Vite service in Compose. `--remove-orphans` removes the previous frontend container during the transition.
+Open http://127.0.0.1:5174. Vite forwards `/api` and `/docs` to http://127.0.0.1:8003. Swagger UI is available at http://127.0.0.1:5174/api/doc; it loads its OpenAPI document through `/docs`. Vite runs on the host rather than as a Compose service.
 
-MySQL uses `medicare_docker` inside the Compose network. The existing `mysql_data` volume and Compose project name are preserved. It remains separate from the host `medicare_integration` database.
+MySQL uses `medicare_docker` inside the Compose network. The `mysql_data` volume persists database records across container restarts.
 
 ```bash
 # Stop while preserving the database volume.
@@ -214,7 +213,7 @@ curl -fsS http://127.0.0.1:8003/up
 docker compose --env-file .env.docker exec backend supervisorctl status
 ```
 
-Verify login, Employee submission, HR visibility and Helpdesk approval through React. Medication amounts must remain included in visit coverage rather than deducted twice. Controller/Service/FormRequest separation and Swagger documentation now cover the existing API checkpoint.
+Verify login, Employee submission, HR visibility and Helpdesk approval through React. Medication amounts must remain included in visit coverage rather than deducted twice. The API uses Controller/Service/FormRequest separation and is documented with Swagger.
 
 ### Cloud validation checkpoint — 2026-10-14
 
@@ -233,7 +232,7 @@ These are manual cloud smoke checks, separate from the automated backend test su
 
 ## API documentation
 
-Open http://127.0.0.1:5174/api/doc through Vite, or http://127.0.0.1:8003/api/doc directly. The JSON specification is served at `/docs`. Like the Demo, it is generated on the first specification request and then reused. Edit `backend_laravel/app/OpenApi/ApiDocumentation.php` when changing an API contract, then regenerate:
+Open http://127.0.0.1:5174/api/doc through Vite, or http://127.0.0.1:8003/api/doc directly. The JSON specification is served at `/docs`. It is generated on the first specification request and then reused. Edit `backend_laravel/app/OpenApi/ApiDocumentation.php` when changing an API contract, then regenerate:
 
 ```bash
 docker compose --env-file .env.docker exec backend php artisan l5-swagger:generate
@@ -241,6 +240,6 @@ docker compose --env-file .env.docker exec backend php artisan l5-swagger:genera
 
 Use the login operation with your development credentials, copy its `access_token` into Swagger's Authorize dialog, and try protected endpoints. Authorization storage in Swagger is disabled by default; credentials and real tokens are not embedded in the specification. Write operations change the connected database, including visit submission and review.
 
-The project uses the same L5 Swagger integration as the Demo, with a Laravel 13-compatible release and PHP attributes for API definitions. Its own documentation view comes from the package; the removed legacy login/benefit Blade pages are not restored.
+API documentation uses L5 Swagger with PHP attributes for API definitions and JWT Bearer authorization. Swagger UI is served by Laravel; React provides the application pages.
 
-Trace a submission: `StoreVisitRequest` validates employee access and input, `VisitController` calls `VisitService`, and the service saves the visit/medications in one transaction through their Models. The Controller returns the existing JSON contract. Review follows the same separation and retains row locking, pending-status checks and server-generated audit fields.
+Trace a submission: `StoreVisitRequest` validates employee access and input, `VisitController` calls `VisitService`, and the service saves the visit/medications in one transaction through their Models. The Controller returns the JSON response. Review follows the same separation and retains row locking, pending-status checks and server-generated audit fields.
