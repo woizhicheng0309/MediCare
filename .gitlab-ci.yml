@@ -88,13 +88,13 @@ frontend-image-build:
     # The frontend Dockerfile builds React and packages its output with nginx.
     - docker build -t "medicare-frontend:$CI_COMMIT_SHA" ./frontend_react
 
-# Publish jobs require a protected main branch and manual approval.
+# Publish images automatically on the protected main branch.
 .registry-publish:
   extends: .docker-build
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
-      when: manual
-      allow_failure: true
+      when: on_success
+      allow_failure: false
     - when: never
   before_script:
     - docker info
@@ -135,7 +135,7 @@ dev-deploy:
     url: https://medicare-dev.duckdns.org
   rules:
     - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
-      when: manual
+      when: on_success
       allow_failure: false
     - when: never
   before_script:
@@ -166,6 +166,42 @@ dev-deploy:
         --image="$BACKEND_IMAGE" --quiet
 
       gcloud run services update medicare-frontend-dev \
+        --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" \
+        --image="$FRONTEND_IMAGE" --quiet
+
+prod-deploy:
+  extends: dev-deploy
+  needs:
+    - dev-deploy
+  resource_group: medicare-prod
+  environment:
+    name: prod
+    url: https://medicare-prod.duckdns.org
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+      allow_failure: false
+    - when: never
+  script:
+    - |
+      BACKEND_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/backend:${CI_COMMIT_SHA}"
+      FRONTEND_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/frontend:${CI_COMMIT_SHA}"
+
+      gcloud run jobs update medicare-prod-migration-job \
+        --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" \
+        --image="$BACKEND_IMAGE" \
+        --command=/bin/sh \
+        --args=/var/www/db-migrate-seed.sh \
+        --execute-now --wait --quiet
+
+      gcloud run services update medicare-prod \
+        --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" \
+        --image="$BACKEND_IMAGE" --quiet
+
+      gcloud run services update medicare-frontend-prod \
         --project="$GCP_PROJECT_ID" \
         --region="$GCP_REGION" \
         --image="$FRONTEND_IMAGE" --quiet
