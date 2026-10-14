@@ -2,6 +2,7 @@ stages:
   - check
   - secret-detection
   - build
+  - deploy
 
 frontend-check:
   stage: check
@@ -119,3 +120,52 @@ frontend-image-publish:
     - IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/frontend:${CI_COMMIT_SHA}"
     - docker build -t "$IMAGE" ./frontend_react
     - docker push "$IMAGE"
+
+dev-deploy:
+  stage: deploy
+  image:
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+    entrypoint: [""]
+  needs:
+    - backend-image-publish
+    - frontend-image-publish
+  resource_group: medicare-dev
+  environment:
+    name: dev
+    url: https://medicare-dev.duckdns.org
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+      allow_failure: false
+    - when: never
+  before_script:
+    - |
+      set -eu
+      umask 077
+      trap 'rm -f /tmp/gcp-ci-key.json' EXIT
+      printf '%s' "$GCP_SERVICE_ACCOUNT_KEY" |
+        base64 -d > /tmp/gcp-ci-key.json
+      gcloud auth activate-service-account \
+        --key-file=/tmp/gcp-ci-key.json --quiet
+  script:
+    - |
+      BACKEND_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/backend:${CI_COMMIT_SHA}"
+      FRONTEND_IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/frontend:${CI_COMMIT_SHA}"
+
+      gcloud run jobs update medicare-dev-migration-job \
+        --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" \
+        --image="$BACKEND_IMAGE" \
+        --command=/bin/sh \
+        --args=/var/www/db-migrate-seed.sh \
+        --execute-now --wait --quiet
+
+      gcloud run services update medicare-dev \
+        --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" \
+        --image="$BACKEND_IMAGE" --quiet
+
+      gcloud run services update medicare-frontend-dev \
+        --project="$GCP_PROJECT_ID" \
+        --region="$GCP_REGION" \
+        --image="$FRONTEND_IMAGE" --quiet
