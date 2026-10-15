@@ -10,3 +10,7 @@
 
 # Generated Swagger documents.
 /backend_laravel/storage/api-docs/
+
+# Local learning references.
+/docs/runbook/
+/docs/INTEGRATION-NOTES.md
