@@ -33,6 +33,12 @@ compose.yaml      Local MySQL, migration and nginx/PHP-FPM services
 
 The React frontend consumes the Laravel JWT API. Controllers coordinate HTTP requests, FormRequests validate input and authorization, and Services handle business operations and scoped queries. MySQL stores company, benefit, visit and medication records.
 
+### Relationship loading
+
+Eloquent models define the one-to-many relationship between visits and medications. Employee and HR visit lists use `with('medications')` to eager load medication records. The Helpdesk pending list uses `with(['user.company', 'medications'])` to also load each employee and company.
+
+Eloquent retrieves the visits, fetches related records in batches, and matches them to their parent models using foreign keys. This avoids a separate medication query for every visit when reading the loaded relationships. See [Employee visits](backend_laravel/app/Services/VisitService.php), [HR employee visits](backend_laravel/app/Services/HrEmployeeService.php) and [Helpdesk pending visits](backend_laravel/app/Services/HelpdeskVisitService.php). This describes the implemented query strategy; query-count and performance measurements have not been recorded.
+
 ## Project documentation
 
 [Product requirements](docs/PRD.md) define users, workflows and acceptance criteria. [System requirements](docs/SRS.md) document API contracts, authorization and validation. The [ERD and data dictionary](docs/ERD.md) describe database relationships and constraints. The `base-image` directory contains PHP-FPM, nginx and Supervisor configuration used by the backend Dockerfile. The root `.gitlab-ci.yml` defines validation, image publishing and Cloud Run deployments.
@@ -243,3 +249,7 @@ Use the login operation with your development credentials, copy its `access_toke
 API documentation uses L5 Swagger with PHP attributes for API definitions and JWT Bearer authorization. Swagger UI is served by Laravel; React provides the application pages.
 
 Trace a submission: `StoreVisitRequest` validates employee access and input, `VisitController` calls `VisitService`, and the service saves the visit/medications in one transaction through their Models. The Controller returns the JSON response. Review follows the same separation and retains row locking, pending-status checks and server-generated audit fields.
+
+## Planned improvements
+
+Redis query caching is planned for later evaluation and is not implemented. The initial candidate is the company-scoped benefit-plan list, with a short expiration time. Start locally and verify cache hits, expiration, company isolation and database fallback before evaluating a cloud rollout. Benefit balances and the Helpdesk pending list retain their current direct database queries.
