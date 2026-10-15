@@ -35,7 +35,7 @@ The React frontend consumes the Laravel JWT API. Controllers coordinate HTTP req
 
 ## Project documentation
 
-[Product requirements](docs/PRD.md) and [system requirements](docs/SRS.md) describe the application scope. The `base-image` directory contains PHP-FPM, nginx and Supervisor configuration used by the backend Dockerfile. The root `.gitlab-ci.yml` defines validation, image publishing and Cloud Run deployments.
+[Product requirements](docs/PRD.md) define users, workflows and acceptance criteria. [System requirements](docs/SRS.md) document API contracts, authorization and validation. The [ERD and data dictionary](docs/ERD.md) describe database relationships and constraints. The `base-image` directory contains PHP-FPM, nginx and Supervisor configuration used by the backend Dockerfile. The root `.gitlab-ci.yml` defines validation, image publishing and Cloud Run deployments.
 
 ## Features
 
