@@ -16,6 +16,7 @@ return [
     */
 
     'default' => env('CACHE_STORE', 'database'),
+    'benefit_plans_store' => env('BENEFIT_PLANS_CACHE_STORE'),
 
     /*
     |--------------------------------------------------------------------------

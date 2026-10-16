@@ -27,7 +27,7 @@ frontend_react/    React + TypeScript + Vite + MUI
 backend_laravel/   Laravel 13 + MySQL + JWT API
 base-image/        PHP-FPM, nginx and Supervisor configuration
 docs/              Product requirements and technical documentation
-compose.yaml      Local MySQL, migration and nginx/PHP-FPM services
+compose.yaml      Local MySQL, Redis, migration and nginx/PHP-FPM services
 .gitlab-ci.yml    Checks, image publishing and Cloud Run deployments
 ```
 
@@ -38,6 +38,16 @@ The React frontend consumes the Laravel JWT API. Controllers coordinate HTTP req
 Eloquent models define the one-to-many relationship between visits and medications. Employee and HR visit lists use `with('medications')` to eager load medication records. The Helpdesk pending list uses `with(['user.company', 'medications'])` to also load each employee and company.
 
 Eloquent retrieves the visits, fetches related records in batches, and matches them to their parent models using foreign keys. This avoids a separate medication query for every visit when reading the loaded relationships. See [Employee visits](backend_laravel/app/Services/VisitService.php), [HR employee visits](backend_laravel/app/Services/HrEmployeeService.php) and [Helpdesk pending visits](backend_laravel/app/Services/HelpdeskVisitService.php). This describes the implemented query strategy; query-count and performance measurements have not been recorded.
+
+### Local Redis cache
+
+The HR benefit-plan list uses cache-aside through Predis when `BENEFIT_PLANS_CACHE_STORE=redis`. Role and company checks run before cache access. Keys include the application environment and company ID; plain-array results expire after 300 seconds. Plan changes can remain cached until expiration unless the corresponding key is explicitly cleared.
+
+Docker Compose runs Redis as a separate service and enables this cache locally. The default cache store remains `database`. When the feature setting is absent, the service queries MySQL directly. Predis connection and stream-initialization failures are reported, then the service falls back to MySQL. Redis failures can still delay the response while the connection attempt completes.
+
+Manual local verification confirmed one SQL query on a cache miss, zero SQL queries on the next cache hit, and identical returned data. These counts cover the benefit-plan Service call, not authentication or the full page. The cache key's TTL decreased as expected, and the HR page remained usable with Redis stopped and after it restarted. These are manual checks, not automated cache test coverage.
+
+Redis is not configured in the cloud environments. Benefit balances and the Helpdesk pending list continue to query the database directly.
 
 ## Project documentation
 
@@ -252,4 +262,4 @@ Trace a submission: `StoreVisitRequest` validates employee access and input, `Vi
 
 ## Planned improvements
 
-Redis query caching is planned for later evaluation and is not implemented. The initial candidate is the company-scoped benefit-plan list, with a short expiration time. Start locally and verify cache hits, expiration, company isolation and database fallback before evaluating a cloud rollout. Benefit balances and the Helpdesk pending list retain their current direct database queries.
+Extend cache verification to company isolation and expiration-driven refresh, add automated regression coverage, and configure bounded Redis connection/read timeouts. Evaluate Redis hosting and network access separately before enabling caching in cloud environments.
