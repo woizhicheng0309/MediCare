@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Link, Paper, Stack, TextField, Typography } from '@mui/material';
 import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
 import { useAuth } from '../../contexts/useAuth';
 
@@ -35,7 +35,22 @@ export default function Login() {
             <Button type="submit" variant="contained" size="large" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</Button>
           </Stack>
         </Box>
-        <Typography variant="caption" color="text.secondary">Employee, HR and Helpdesk access.</Typography>
+        <Box>
+          <Typography variant="body2" color="text.secondary">
+            Trying the demo?{' '}
+            <Link
+              href="https://gitlab.com/woizhicheng0309/medicare/-/blob/main/README.md#live-demo"
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="always"
+              sx={{ color: 'primary.main', textDecoration: 'underline', textUnderlineOffset: '3px', '&::before': { display: 'none' } }}
+              aria-label="View demo accounts and password on GitLab (opens in a new tab)"
+            >
+              View demo accounts and password on GitLab
+            </Link>.
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>Employee, HR and Helpdesk access.</Typography>
+        </Box>
       </Stack>
     </Paper>
   </Box>;
