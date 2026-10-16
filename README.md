@@ -16,6 +16,7 @@ Both environments contain fictional sample accounts. The shared demonstration pa
 | Alex Chen | `alex@microprogram.employee` | Employee | Microprogram |
 | Jamie Lee | `jamie@horizon.employee` | Employee | Horizon |
 | Morgan Lin | `morgan@microprogram.hr` | HR | Microprogram |
+| Riley Tan | `riley@horizon.hr` | HR | Horizon |
 | Taylor Wong | `taylor@medicare.helpdesk` | Helpdesk | MediCare, the TPA operator |
 
 Demo submissions and reviews write to the selected environment's database. Dev and prod data are independent; changes to sample records are not copied between them.
@@ -128,6 +129,20 @@ docker compose --env-file .env.docker up -d
 ```
 
 `down -v` deletes the database volume. Do not use it for ordinary restarts.
+
+### Optional demonstration activity
+
+After the base accounts and benefit plans have been seeded, explicitly run:
+
+```bash
+docker compose --env-file .env.docker exec backend php artisan db:seed --class=DemoActivitySeeder
+```
+
+On a fresh database, this creates eight employees per client company, two HR accounts in total, 64 visits and 64 medication records. Each employee has two approved visits, one pending visit and one rejected visit, with varied dates and amounts, doctor details and a sick-leave example. All medical information is fictional. New accounts use the shared demonstration password listed above; existing passwords are preserved.
+
+The visit fixtures use fixed 2026 dates, while employee plan assignments use the current year. Review the fixture year before reusing this dataset in later years. Repeated runs preserve matching visits, their review decisions, existing medications and annual plan choices. Visits are matched by employee, clinic, date and time; changing those fixture identifiers would create additional records. Existing manual data is retained, so an already-used database may have different totals and status counts.
+
+This seeder is not called by `DatabaseSeeder` or deployment migrations. Import the data separately in each environment only after the updated application image has been deployed. It does not copy data between environments.
 
 ## Production image
 

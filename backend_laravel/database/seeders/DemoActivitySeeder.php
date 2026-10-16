@@ -49,6 +49,10 @@ class DemoActivitySeeder extends Seeder
 
             $password = Hash::make('LearningDemo!2026');
             $year = now()->year;
+            $reviewer = User::where('email', 'taylor@medicare.helpdesk')
+                ->where('role', 'helpdesk')
+                ->sole();
+            $variant = 0;
 
             foreach ($companies as $companyName => $data) {
                 $company = Company::where('name', $companyName)
@@ -97,22 +101,33 @@ class DemoActivitySeeder extends Seeder
                             'benefit_plan_id' => $plan->id,
                         ],
                     );
+                    $this->seedEmployeeVisits($employee, $reviewer, $variant);
+                    $variant++;
                 }
             }
-            $alex = User::where('email', 'alex@microprogram.employee')
-                ->where('role', 'employee')
-                ->sole();
 
-            $reviewer = User::where('email', 'taylor@medicare.helpdesk')
-                ->where('role', 'helpdesk')
-                ->sole();
+            $horizon = Company::where('name', 'Horizon')->sole();
+            $hr = User::firstOrCreate(
+                ['email' => 'riley@horizon.hr'],
+                [
+                    'name' => 'Riley Tan',
+                    'password' => $password,
+                    'role' => 'hr',
+                    'company_id' => $horizon->id,
+                ],
+            );
 
-            $this->seedAlexVisits($alex, $reviewer);
+            if ($hr->role !== 'hr' || (int) $hr->company_id !== (int) $horizon->id) {
+                throw new RuntimeException('Demo account role or company mismatch: riley@horizon.hr');
+            }
         });
     }
 
-    private function seedAlexVisits(User $employee, User $reviewer): void
-    {
+    private function seedEmployeeVisits(
+        User $employee,
+        User $reviewer,
+        int $variant,
+    ): void {
         $samples = [
             [
                 'clinic' => 'Central Clinic',
@@ -164,7 +179,10 @@ class DemoActivitySeeder extends Seeder
         ];
 
         foreach ($samples as $sample) {
-            $visitedOn = CarbonImmutable::parse($sample['date']);
+            // Keep Alex's original fixture unchanged; vary other employees deterministically.
+            $visitedOn = CarbonImmutable::parse($sample['date'])->addDays($variant);
+            $sample['date'] = $visitedOn->toDateString();
+            $sample['amount'] += $variant * 50;
             $reviewed = $sample['status'] !== 'pending';
 
             $visit = Visit::firstOrCreate(
