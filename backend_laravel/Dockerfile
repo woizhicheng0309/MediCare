@@ -30,17 +30,17 @@ RUN set -eux; \
 
 # Use the production PHP configuration by default.
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-COPY base-image/php/conf.d/ $PHP_INI_DIR/conf.d/
+COPY docker/php/conf.d/ $PHP_INI_DIR/conf.d/
 
 # Use the Demo PHP-FPM configuration and Unix socket.
 RUN rm -f /usr/local/etc/php-fpm.d/*.conf
-COPY base-image/php/php-fpm.conf /usr/local/etc/php-fpm.conf
+COPY docker/php/php-fpm.conf /usr/local/etc/php-fpm.conf
 
-COPY base-image/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY base-image/nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY base-image/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
-COPY base-image/supervisor/conf.d/ /etc/supervisor/conf.d/
-COPY --chmod=755 base-image/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY docker/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/supervisor/conf.d/ /etc/supervisor/conf.d/
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN mkdir -p /docker-entrypoint.d
 
@@ -76,15 +76,15 @@ RUN set -eux; \
 
 # Development settings enable live-code updates.
 RUN cp "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
-COPY base-image/php/conf.d-dev/ $PHP_INI_DIR/conf.d/
+COPY docker/php/conf.d-dev/ $PHP_INI_DIR/conf.d/
 
 # Build application dependencies with the same PHP extensions as production.
 FROM runtime AS build
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 ENV COMPOSER_ALLOW_SUPERUSER=1
-COPY backend_laravel/composer.json backend_laravel/composer.lock ./
+COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress
-COPY backend_laravel/ ./
+COPY . ./
 # Create Laravel directories explicitly because Git does not preserve empty folders.
 RUN mkdir -p resources/views storage/app/private storage/app/public storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && composer dump-autoload --optimize --no-dev \
@@ -94,4 +94,4 @@ RUN mkdir -p resources/views storage/app/private storage/app/public storage/fram
 # The final image contains application code and vendor, without Composer or dev tools.
 FROM runtime AS prod
 COPY --from=build --chown=www-data:www-data /var/www /var/www
-COPY --chmod=755 backend_laravel/docker/entrypoint.d/ /docker-entrypoint.d/
+COPY --chmod=755 docker/entrypoint.d/ /docker-entrypoint.d/

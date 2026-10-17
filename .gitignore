@@ -1,3 +1,4 @@
+# Ignore list.
 /AGENTS.md
 .DS_Store
 .env

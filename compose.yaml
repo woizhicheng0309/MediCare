@@ -21,8 +21,8 @@ services:
   backend:
     image: medicare-backend:dev
     build:
-      context: .
-      dockerfile: backend_laravel/Dockerfile
+      context: ./backend_laravel
+      dockerfile: Dockerfile
       target: dev
     environment: &backend_environment
       APP_NAME: MediCare
