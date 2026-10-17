@@ -1,6 +1,6 @@
 <?php
 
-// test/smoke.sh 用：印出請求內容和 FPM 實際生效的 PHP 設定
+// Return request details and effective FPM settings for runtime smoke tests.
 header('Content-Type: text/plain');
 
 $flag = fn (string $key) => ini_get($key) ? 'on' : 'off';
@@ -17,5 +17,5 @@ foreach (['allow_url_fopen', 'expose_php', 'display_errors', 'opcache.enable', '
     echo "$key=" . $flag($key) . "\n";
 }
 
-// 和 Laravel 的 LOG_CHANNEL=stderr 一樣寫到 php://stderr
+// Write to php://stderr, as Laravel does with LOG_CHANNEL=stderr.
 file_put_contents('php://stderr', "smoke-test: hello from worker\n");

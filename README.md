@@ -26,7 +26,7 @@ Demo submissions and reviews write to the selected environment's database. Dev a
 ```text
 frontend_react/    React + TypeScript + Vite + MUI
 backend_laravel/   Laravel 13 + MySQL + JWT API
-base-image/        PHP-FPM, nginx and Supervisor configuration
+backend_laravel/docker/  PHP-FPM, nginx and Supervisor configuration
 docs/              Product requirements and technical documentation
 compose.yaml      Local MySQL, Redis, migration and nginx/PHP-FPM services
 .gitlab-ci.yml    Checks, image publishing and Cloud Run deployments
@@ -52,7 +52,7 @@ Redis is not configured in the cloud environments. Benefit balances and the Help
 
 ## Project documentation
 
-[Product requirements](docs/PRD.md) define users, workflows and acceptance criteria. [System requirements](docs/SRS.md) document API contracts, authorization and validation. The [ERD and data dictionary](docs/ERD.md) describe database relationships and constraints. The `base-image` directory contains PHP-FPM, nginx and Supervisor configuration used by the backend Dockerfile. The root `.gitlab-ci.yml` defines validation, image publishing and Cloud Run deployments.
+[Product requirements](docs/PRD.md) define users, workflows and acceptance criteria. [System requirements](docs/SRS.md) document API contracts, authorization and validation. The [ERD and data dictionary](docs/ERD.md) describe database relationships and constraints. The `backend_laravel/docker` directory contains PHP-FPM, nginx and Supervisor configuration used by the backend Dockerfile. The root `.gitlab-ci.yml` defines validation, image publishing and Cloud Run deployments.
 
 ## Features
 
@@ -80,7 +80,7 @@ Run commands from the repository root. Keep the ignored `.env.docker` with `APP_
 
 ```bash
 # Build the dev stage, not the final production stage.
-docker build --target dev -f backend_laravel/Dockerfile -t medicare-backend:dev .
+docker build --target dev -t medicare-backend:dev ./backend_laravel
 ```
 
 For a fresh checkout only, generate `.env.docker` if it does not exist:
@@ -147,10 +147,21 @@ This seeder is not called by `DatabaseSeeder` or deployment migrations. Import t
 ## Production image
 
 ```bash
-docker build --target prod -f backend_laravel/Dockerfile -t medicare-backend:prod .
+docker build --target prod -t medicare-backend:prod ./backend_laravel
 ```
 
-The same Dockerfile provides runtime, dev, build and prod stages. The build stage installs dependencies without dev packages and caches routes/views. The final stage contains nginx, PHP-FPM and application code, without Composer or Xdebug. Local credentials and generated files are excluded from the root build context. The startup hook caches configuration from runtime environment variables in production and skips optimization locally.
+The same Dockerfile provides runtime, dev, build and prod stages. The build stage installs dependencies without dev packages and caches routes/views. The final stage contains nginx, PHP-FPM and application code, without Composer or Xdebug. The build context is `backend_laravel/`; its `.dockerignore` excludes local credentials, dependencies, generated files and smoke fixtures. The startup hook caches configuration from runtime environment variables in production and skips optimization locally.
+
+Runtime configuration lives in `backend_laravel/docker/{nginx,php,supervisor}` with a shared `entrypoint.sh`. There is one backend Dockerfile and no separately published custom base image. The `runtime` stage starts from the official PHP image; `dev`, `build` and `prod` derive from that stage.
+
+Run the runtime smoke checks from the repository root:
+
+```bash
+backend_laravel/docker/test/smoke.sh prod
+backend_laravel/docker/test/smoke.sh dev
+```
+
+Each check builds the corresponding backend target and starts a temporary container on a dynamically allocated localhost port. An isolated PHP fixture and startup hook replace the application for checks of nginx routing, FPM settings, extensions, Supervisor restart behavior and logs. Containers are removed on exit; the development database is not used. Set `PLATFORM=linux/amd64` to check the Cloud Run architecture on Apple Silicon.
 
 The production migration command uses the same application image with a separate job:
 

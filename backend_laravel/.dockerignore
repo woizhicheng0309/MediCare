@@ -21,3 +21,9 @@ storage/framework/sessions/*
 storage/framework/views/*
 storage/*.key
 database/*.sqlite*
+
+# Local assistant context, generated API docs and smoke fixtures are not image content.
+AGENTS.md
+CLAUDE.md
+storage/api-docs
+docker/test

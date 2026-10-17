@@ -79,8 +79,8 @@ secret_detection:
 backend-image-build:
   extends: .docker-build
   script:
-    # Root context includes both backend code and base-image configuration.
-    - docker build --target prod -f backend_laravel/Dockerfile -t "medicare-backend:$CI_COMMIT_SHA" .
+    # Backend context includes application code and its runtime configuration.
+    - docker build --target prod -t "medicare-backend:$CI_COMMIT_SHA" ./backend_laravel
 
 frontend-image-build:
   extends: .docker-build
@@ -111,7 +111,7 @@ backend-image-publish:
   script:
     # Build and push in the same job because each job has its own daemon.
     - IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/backend:${CI_COMMIT_SHA}"
-    - docker build --target prod -f backend_laravel/Dockerfile -t "$IMAGE" .
+    - docker build --target prod -t "$IMAGE" ./backend_laravel
     - docker push "$IMAGE"
 
 frontend-image-publish:
