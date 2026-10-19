@@ -165,7 +165,55 @@ class ApiDocumentation
         ]
     )]
     public function benefits(): void {}
-
+    #[OA\Get(
+        path: '/hr/summary',
+        operationId: 'hrSummary',
+        summary: 'Get own-company annual medical spending summary',
+        description: 'Employee count reflects current company membership. Visit count and spending include only approved employee visits in the current calendar year. Medication costs are already included.',
+        tags: ['HR'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Success',
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'year', type: 'integer'),
+                        new OA\Property(
+                            property: 'currency',
+                            type: 'string',
+                            example: 'TWD',
+                        ),
+                        new OA\Property(
+                            property: 'employee_count',
+                            type: 'integer',
+                        ),
+                        new OA\Property(
+                            property: 'approved_visit_count',
+                            type: 'integer',
+                        ),
+                        new OA\Property(
+                            property: 'used_amount',
+                            type: 'integer',
+                            description: 'Total approved coverage in whole TWD',
+                        ),
+                    ],
+                ),
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Unauthenticated',
+                content: new OA\JsonContent(ref: '#/components/schemas/Error'),
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'HR role and company membership required',
+                content: new OA\JsonContent(ref: '#/components/schemas/Error'),
+            ),
+        ],
+    )]
+    public function hrSummary(): void {}
     #[OA\Get(path: '/hr/employees', operationId: 'employees', summary: 'List own-company employees', tags: ['HR'],
         security: [['bearerAuth' => []]],
         responses: [

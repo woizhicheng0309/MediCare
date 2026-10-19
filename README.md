@@ -61,6 +61,7 @@ Redis is not configured in the cloud environments. Benefit balances and the Help
 - `/api/me` restores the authenticated user's profile and role.
 - Employee overview displays annual benefits, personal visits and medications.
 - HR manages own-company employees, reviews visits/medications and assigns the current-year benefit plan.
+- HR can retrieve a current-year company medical spending summary through the API and Swagger.
 - Helpdesk reviews pending visits across client companies and approves or rejects submissions.
 - React forms submit visits, assign benefit plans and review submissions through protected APIs.
 - Visits support diagnosis, sick leave dates, visit time, doctor details and multiple medications.
@@ -71,6 +72,24 @@ Redis is not configured in the cloud environments. Benefit balances and the Help
 - Swagger documents the application APIs, with email login and JWT Bearer authorization.
 
 Only approved visits count toward annual usage. Medication costs are included in visit covered amounts and are not deducted twice. Each employee has one plan assignment per calendar year; changing plans preserves that year's usage. Display/input use whole TWD and storage uses integer cents.
+
+### HR annual medical spending summary
+
+`GET /api/hr/summary` requires a valid JWT and an HR account with company membership. The company scope comes from the authenticated HR account; the endpoint does not accept a company ID or year parameter.
+
+The response contains:
+
+| Field | Meaning |
+| --- | --- |
+| `year` | Current calendar year |
+| `currency` | `TWD` |
+| `employee_count` | Current number of employees in the HR account's company, excluding HR and Helpdesk accounts |
+| `approved_visit_count` | Number of approved visits in that year belonging to the company's current employees |
+| `used_amount` | Total coverage of those approved visits, expressed in whole TWD |
+
+The Service scopes visits through their employee relationship and performs `COUNT` and `SUM` in the database. Pending and rejected visits are excluded; medication amounts are already included in visit coverage and are not added again. A company with no matching approved visits receives zero visit count and spending. This is a summary based on current company membership, not a historical employee headcount report.
+
+The endpoint is available through the API and Swagger; a React summary dashboard is not implemented. A local manual Swagger call returned the current-year employee count, approved visit count and spending successfully. Values change as demonstration records are reviewed or added.
 
 ## Local development
 

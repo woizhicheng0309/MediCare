@@ -8,6 +8,7 @@ use App\Http\Controllers\HrEmployeeController;
 use App\Http\Controllers\HrBenefitPlanController;
 use App\Http\Controllers\HrBenefitAssignmentController;
 use App\Http\Controllers\HelpdeskVisitController;
+use App\Http\Controllers\HrSummaryController;
 
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:5,1')
@@ -58,3 +59,7 @@ Route::patch('/helpdesk/visits/{visitId}/status', [HelpdeskVisitController::clas
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth:api')
     ->name('api.logout');
+
+Route::get('/hr/summary', [HrSummaryController::class, 'summary'])
+    ->middleware('auth:api')
+    ->name('api.hr.summary');
