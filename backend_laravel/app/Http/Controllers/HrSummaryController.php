@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\HrSummaryService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use App\Http\Requests\HrSummaryRequest;
 
 class HrSummaryController extends Controller
 {
@@ -12,10 +12,12 @@ class HrSummaryController extends Controller
         private readonly HrSummaryService $service,
     ) {}
 
-    public function summary(Request $request): JsonResponse
+    public function summary(HrSummaryRequest $request): JsonResponse
     {
+        $year = (int) $request->validated('year', now()->year);
+
         return response()->json(
-            $this->service->summary($request->user('api'))
+            $this->service->summary($request->user('api'), $year)
         );
     }
 }

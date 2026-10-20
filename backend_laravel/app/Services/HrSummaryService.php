@@ -7,12 +7,10 @@ use App\Models\Visit;
 
 class HrSummaryService
 {
-    public function summary(User $hr): array
+    public function summary(User $hr, int $year): array
     {
         abort_unless($hr->role === 'hr', 403);
         abort_if($hr->company_id === null, 403);
-
-        $year = now()->year;
 
         $employeeCount = User::where('company_id', $hr->company_id)
             ->where('role', 'employee')

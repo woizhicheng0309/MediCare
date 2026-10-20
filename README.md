@@ -75,13 +75,13 @@ Only approved visits count toward annual usage. Medication costs are included in
 
 ### HR annual medical spending summary
 
-`GET /api/hr/summary` requires a valid JWT and an HR account with company membership. The company scope comes from the authenticated HR account; the endpoint does not accept a company ID or year parameter.
+`GET /api/hr/summary` requires a valid JWT and an HR account with company membership. The company scope comes from the authenticated HR account; the endpoint does not accept a company ID. The optional `year` query parameter accepts an integer from 2000 to the current year and defaults to the current year when omitted. Invalid years return HTTP 422 through `HrSummaryRequest` validation.
 
 The response contains:
 
 | Field | Meaning |
 | --- | --- |
-| `year` | Current calendar year |
+| `year` | Selected calendar year; defaults to the current year |
 | `currency` | `TWD` |
 | `employee_count` | Current number of employees in the HR account's company, excluding HR and Helpdesk accounts |
 | `approved_visit_count` | Number of approved visits in that year belonging to the company's current employees |
@@ -89,7 +89,9 @@ The response contains:
 
 The Service scopes visits through their employee relationship and performs `COUNT` and `SUM` in the database. Pending and rejected visits are excluded; medication amounts are already included in visit coverage and are not added again. A company with no matching approved visits receives zero visit count and spending. This is a summary based on current company membership, not a historical employee headcount report.
 
-The endpoint is available through the API and Swagger; a React summary dashboard is not implemented. A local manual Swagger call returned the current-year employee count, approved visit count and spending successfully. Values change as demonstration records are reviewed or added.
+The endpoint is available through the API and Swagger; a React summary dashboard is not implemented. Use `/api/hr/summary` for the current year or `/api/hr/summary?year=2025` for a selected year. Employee count always reflects current company membership, regardless of the selected year.
+
+Local manual Swagger checks confirmed the current-year summary, a 2025 response with zero visits and spending for an empty reporting year, and an HTTP 422 response for a future year (2027 when the current year was 2026). Values change as demonstration records are reviewed or added.
 
 ## Local development
 

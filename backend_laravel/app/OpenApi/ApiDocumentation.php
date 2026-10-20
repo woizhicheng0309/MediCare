@@ -169,9 +169,22 @@ class ApiDocumentation
         path: '/hr/summary',
         operationId: 'hrSummary',
         summary: 'Get own-company annual medical spending summary',
-        description: 'Employee count reflects current company membership. Visit count and spending include only approved employee visits in the current calendar year. Medication costs are already included.',
+        description: 'Employee count reflects current company membership. Visit count and spending include only approved employee visits in the selected calendar year. The year defaults to the current year. Medication costs are already included.',
         tags: ['HR'],
         security: [['bearerAuth' => []]],
+        parameters: [
+        new OA\Parameter(
+            name: 'year',
+            in: 'query',
+            required: false,
+            description: 'Integer from 2000 to the current year. Omit to use the current year.',
+            schema: new OA\Schema(
+                type: 'integer',
+                minimum: 2000,
+                example: 2025,
+            ),
+        ),
+    ],
         responses: [
             new OA\Response(
                 response: 200,
@@ -210,6 +223,11 @@ class ApiDocumentation
                 response: 403,
                 description: 'HR role and company membership required',
                 content: new OA\JsonContent(ref: '#/components/schemas/Error'),
+            ),
+            new OA\Response(
+            response: 422,
+            description: 'Invalid year',
+            content: new OA\JsonContent(ref: '#/components/schemas/Error'),
             ),
         ],
     )]
