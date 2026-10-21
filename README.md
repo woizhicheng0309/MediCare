@@ -175,6 +175,10 @@ This seeder is not called by `DatabaseSeeder` or deployment migrations. Import t
 
 ## Production image
 
+For the advisory assessment, containment decisions, build provenance and recovery evidence, see the [PHP2SHELL response record](docs/security/2026-10-21-php2shell-response.md). The record includes the verified recovery, final CI release and evidence limits.
+
+The backend runtime is pinned to PHP 8.5.12, which fixes CVE-2026-109618 and CVE-2026-109619 (PHP2SHELL). CI explicitly pulls the base image before building. Existing deployed containers receive the fix only after a patched application image is built and deployed; restarting an old image does not update PHP.
+
 ```bash
 docker build --target prod -t medicare-backend:prod ./backend_laravel
 ```

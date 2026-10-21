@@ -1,6 +1,6 @@
 # PHP 8.5 runtime, development tools and application stages in one Dockerfile.
 # runtime: production services; dev: Composer, Xdebug and live-code settings.
-FROM php:8.5-fpm-trixie AS runtime
+FROM php:8.5.12-fpm-trixie AS runtime
 
 # Install nginx and Supervisor; remove unused default sites.
 RUN set -eux; \
