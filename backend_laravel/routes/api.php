@@ -63,3 +63,7 @@ Route::post('/logout', [AuthController::class, 'logout'])
 Route::get('/hr/summary', [HrSummaryController::class, 'summary'])
     ->middleware('auth:api')
     ->name('api.hr.summary');
+
+Route::get('/hr/clinic-statistics', [HrSummaryController::class, 'clinicStatistics'])
+    ->middleware('auth:api')
+    ->name('api.hr.clinic-statistics');

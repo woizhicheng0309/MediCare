@@ -93,6 +93,14 @@ The endpoint is available through the API and Swagger; a React summary dashboard
 
 Local manual Swagger checks confirmed the current-year summary, a 2025 response with zero visits and spending for an empty reporting year, and an HTTP 422 response for a future year (2027 when the current year was 2026). Values change as demonstration records are reviewed or added.
 
+### HR clinic ranking
+
+`GET /api/hr/clinic-statistics` returns up to five clinics ranked by approved visit count, with clinic name ascending as the tie-breaker. It uses the same HR authorization and optional `year` validation as the annual summary. Only visits belonging to the authenticated HR company's current employees are included; no company ID can be supplied by the caller.
+
+The response contains `year`, `currency` (`TWD`) and a `clinics` array. Each entry includes `clinic`, `approved_visit_count` and `used_amount` in whole TWD. Grouping, counting, summing, sorting and the five-clinic limit are performed in the database. Medication costs are included in visit coverage, not added again. No matching visits produce an empty array. Clinics are grouped using the existing clinic-name field and the database's collation; there is no separate clinic directory or clinic ID.
+
+A local manual Swagger call returned three clinics totaling 17 approved visits and TWD 16,000, consistent with the annual summary for that dataset. The two clinics with eight visits each appeared in clinic-name order. If more than five clinics match, ranking totals cover only the returned five and may differ from the full annual summary. This endpoint is currently API/Swagger only, without a React dashboard or Redis cache.
+
 ## Local development
 
 Requirements: Docker Engine and Compose, Node 24 and pnpm as pinned in the frontend manifest. The host backend `.env` remains independent; Compose injects its own database and keys into the containers.

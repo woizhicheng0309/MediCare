@@ -232,6 +232,83 @@ class ApiDocumentation
         ],
     )]
     public function hrSummary(): void {}
+    #[OA\Get(
+        path: '/hr/clinic-statistics',
+        operationId: 'hrClinicStatistics',
+        summary: 'Get the top five own-company clinics',
+        description: 'Ranks clinics by approved visit count in the selected year, then by clinic name ascending for ties. Only visits belonging to the company’s current employees are included. Medication costs are already included in visit coverage.',
+        tags: ['HR'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'year',
+                in: 'query',
+                required: false,
+                description: 'Integer from 2000 to the current year. Omit to use the current year.',
+                schema: new OA\Schema(
+                    type: 'integer',
+                    minimum: 2000,
+                    example: 2026,
+                ),
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Success; clinics is empty when no records match',
+                content: new OA\JsonContent(
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'year', type: 'integer'),
+                        new OA\Property(
+                            property: 'currency',
+                            type: 'string',
+                            example: 'TWD',
+                        ),
+                        new OA\Property(
+                            property: 'clinics',
+                            type: 'array',
+                            maxItems: 5,
+                            items: new OA\Items(
+                                type: 'object',
+                                properties: [
+                                    new OA\Property(
+                                        property: 'clinic',
+                                        type: 'string',
+                                    ),
+                                    new OA\Property(
+                                        property: 'approved_visit_count',
+                                        type: 'integer',
+                                    ),
+                                    new OA\Property(
+                                        property: 'used_amount',
+                                        type: 'integer',
+                                        description: 'Total approved coverage in whole TWD',
+                                    ),
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+            new OA\Response(
+                response: 401,
+                description: 'Unauthenticated',
+                content: new OA\JsonContent(ref: '#/components/schemas/Error'),
+            ),
+            new OA\Response(
+                response: 403,
+                description: 'HR role and company membership required',
+                content: new OA\JsonContent(ref: '#/components/schemas/Error'),
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Invalid year',
+                content: new OA\JsonContent(ref: '#/components/schemas/Error'),
+            ),
+        ],
+    )]
+    public function hrClinicStatistics(): void {}
     #[OA\Get(path: '/hr/employees', operationId: 'employees', summary: 'List own-company employees', tags: ['HR'],
         security: [['bearerAuth' => []]],
         responses: [
