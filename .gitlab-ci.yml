@@ -21,7 +21,7 @@ frontend-check:
 
 backend-syntax:
   stage: check
-  image: php:8.5-cli
+  image: php:8.5.12-cli
   script:
     - cd backend_laravel
     - find app routes database config bootstrap -name '*.php' -not -path 'bootstrap/cache/*' -print0 | xargs -0 -n 1 php -l
@@ -35,7 +35,7 @@ backend-dependencies:
 
 backend-tests:
   stage: check
-  image: php:8.5-cli
+  image: php:8.5.12-cli
   before_script:
     - apt-get update
     - apt-get install -y --no-install-recommends git unzip
@@ -80,7 +80,7 @@ backend-image-build:
   extends: .docker-build
   script:
     # Backend context includes application code and its runtime configuration.
-    - docker build --target prod -t "medicare-backend:$CI_COMMIT_SHA" ./backend_laravel
+    - docker build --pull --target prod -t "medicare-backend:$CI_COMMIT_SHA" ./backend_laravel
 
 frontend-image-build:
   extends: .docker-build
@@ -111,7 +111,7 @@ backend-image-publish:
   script:
     # Build and push in the same job because each job has its own daemon.
     - IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_REPOSITORY}/backend:${CI_COMMIT_SHA}"
-    - docker build --target prod -t "$IMAGE" ./backend_laravel
+    - docker build --pull --target prod -t "$IMAGE" ./backend_laravel
     - docker push "$IMAGE"
 
 frontend-image-publish:
