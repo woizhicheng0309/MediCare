@@ -1,19 +1,21 @@
-# PHP2SHELL vulnerability response — 21 October 2026
+# PHP2SHELL vulnerability response — 21–22 October 2026 (Taiwan)
 
 This record documents the response to CVE-2026-109618 and CVE-2026-109619 in the MediCare demonstration application. It records a confirmed outdated PHP runtime and precautionary containment. It does **not** establish that the application was exploited or that data was compromised.
 
-**Status: response in progress.** The patched source-built base and application images are complete and locally verified. The public dev and prod backend entry points remain restricted; deployment, cloud execution checks and restoration are still pending. Times are UTC; Taiwan time is UTC+08:00.
+**Status: patched and verified.** Local development, dev/prod backend services and both cloud migration jobs use PHP 8.5.12. After the verified emergency source-built rollout, the normal main pipeline passed all 11 jobs and promoted the same official-registry-based application artifact to dev and prod. Final cloud revision/digest, version-only execution and public HTTP checks passed. Times below are UTC; Taiwan time is UTC+08:00. This response crossed into 22 October in Taiwan.
 
-## Outcome at this checkpoint
+## Verified recovery
 
 - Confirmed PHP **8.5.11** in the local backend runtime and identified PHP-FPM as the web execution model. Offline inspection of the exact deployed application artifact also confirmed PHP 8.5.11 in both its CLI and FPM binaries.
-- Inventoried the deployed dev and prod backend services and their migration jobs. All four references still pointed to the same pre-response application image digest.
-- Restricted both Cloud Run backend services to `internal` ingress and verified HTTP `404` from their public API entry points. This intentionally interrupted public login and API use while leaving the frontend deployment unchanged.
+- Inventoried the deployed dev and prod backend services and their migration jobs. All four initially referenced the same pre-response application image digest and were subsequently updated to the patched application artifact.
+- Temporarily restricted both Cloud Run backend services to `internal` ingress and verified public API `404` responses. Restored the intended ingress only after patched-image and cloud execution checks; both sites then returned `/up` 200, unauthenticated `/api/me` 401 and `/api/doc` 200. Public login and API use were interrupted during containment.
 - Isolated the security change from unreleased reporting features by branching from `origin/main`.
 - Prepared PHP **8.5.12** runtime and CI pins, plus explicit base-image pulls in the normal application build path.
 - Identified a release propagation gap: upstream PHP source and Docker image metadata had been updated, while the required Docker Hub image tags were still unavailable.
 - Completed an emergency local `linux/amd64` build using the official PHP Dockerfile at an exact upstream commit. Source checksum/signature validation passed; both the finished base and application image report PHP CLI and FPM 8.5.12. Existing backend tests passed (40 tests, 688 assertions), isolated runtime checks passed (41 checks), and the real application returned the expected 200/401/200 health/authentication/documentation responses.
-- On resuming the response, verified that the official FPM and CLI patch tags had become available. The ordinary pinned CI path can now use them.
+- On resuming the response after an assistant usage-limit interruption, rechecked containment and verified that the official FPM and CLI patch tags had become available. Rebuilt the local native-arm64 development container from the official registry image; PHP 8.5.12, `/up` 200 and application ping 200/pong were verified without recreating the database or Redis containers.
+- Deployed the verified source-built amd64 application artifact to dev and prod, updated both migration-job images, and executed version-only checks that reported CLI and FPM 8.5.12. Both new service revisions were ready with 100% traffic before public recovery checks.
+- Committed the isolated security patch and merged MR 33. The normal main pipeline passed all 11 jobs, deployed the official-base artifact to dev and prod, and was followed by independent cloud version/digest and public HTTP checks.
 
 ## Application and deployment context
 
@@ -23,16 +25,16 @@ The application has JWT-protected Employee, HR and Helpdesk APIs. Those applicat
 
 The response covered these runtime consumers:
 
-| Component | Finding before remediation | Required follow-through |
+| Component | Finding before remediation | Emergency recovery (final CI state below) |
 | --- | --- | --- |
-| Local Compose backend | PHP 8.5.11 directly observed; PHP-FPM configuration identified | Rebuild and recreate the backend with a verified patched image without resetting the database |
-| Dev Cloud Run backend | Exact deployed artifact confirmed to contain PHP 8.5.11; public ingress subsequently restricted | Deploy patched image, verify the new revision, then restore intended ingress |
-| Prod Cloud Run backend | Same verified PHP 8.5.11 application artifact; public ingress subsequently restricted | Repeat the verified deployment and restoration sequence |
-| Dev migration job | Referenced the existing application image | Update its image even though no database migration is required by this patch |
-| Prod migration job | Referenced the existing application image | Update its image and retain the ordinary migration command |
+| Local Compose backend | PHP 8.5.11 directly observed; PHP-FPM configuration identified | Native-arm64 dev image rebuilt from official PHP 8.5.12 registry base; CLI/FPM and normal health/ping verified; database and Redis containers retained |
+| Dev Cloud Run backend | Exact deployed artifact contained PHP 8.5.11; public ingress temporarily restricted | Patched artifact deployed to `medicare-dev-00013-6fh`, ready with 100% traffic; intended ingress restored and public checks passed |
+| Prod Cloud Run backend | Same verified PHP 8.5.11 artifact; public ingress temporarily restricted | Same patched artifact deployed to `medicare-prod-00008-46r`, ready with 100% traffic; intended ingress restored and public checks passed |
+| Dev migration job | Referenced the old application image | Updated to patched artifact; version-only execution `v8zk2` verified CLI/FPM 8.5.12 without running migrations or seeders |
+| Prod migration job | Referenced the old application image | Updated to patched artifact; version-only execution `f48hw` verified CLI/FPM 8.5.12; ordinary job command retained |
 | Frontend services | Do not execute PHP | No PHP runtime rebuild required |
 
-The old application image digest was `sha256:21fa367f1a426276c95d90d1ef894fb972f243035938d84ad3ede2d0b9636000`. Both services resolved to that exact digest. At **2026-10-21 15:36:29Z**, offline inspection of that artifact confirmed `linux/amd64`, CLI PHP 8.5.11 and PHP-FPM 8.5.11 (`fpm-fcgi`). The checks used `docker run --rm --network none` with explicit PHP entry points, no environment-file injection and no volume mounts. This confirms the deployed artifact's vulnerable version without claiming that a request was executed inside a live cloud worker. Post-patch cloud execution verification remains a separate evidence item.
+The old application image digest was `sha256:21fa367f1a426276c95d90d1ef894fb972f243035938d84ad3ede2d0b9636000`. Both services resolved to that exact digest. At **2026-10-21 15:36:29Z**, offline inspection of that artifact confirmed `linux/amd64`, CLI PHP 8.5.11 and PHP-FPM 8.5.11 (`fpm-fcgi`). The checks used `docker run --rm --network none` with explicit PHP entry points, no environment-file injection and no volume mounts. This confirms the deployed artifact's vulnerable version without claiming that a request was executed inside a live cloud worker. Post-patch cloud job executions subsequently verified the new artifact in each environment; those results are recorded below separately from live web-worker inspection.
 
 ## Validating the advisory and the actual risk
 
@@ -76,11 +78,21 @@ Exact timestamps are included only where an observed record supports them. Other
 | **2026-10-21 15:34:29–30Z** | Rechecked both backend services: ingress remained `internal`, with the old ready revisions still selected. This was containment verification, not patched deployment verification. |
 | Registry recheck at approximately 15:34Z | Required official registry tags were still unavailable; this observation does not predict when they would be published. |
 | **2026-10-21 15:36:29Z** | Offline inspection of the old deployed image confirmed `linux/amd64`, CLI PHP 8.5.11 and FPM PHP 8.5.11. The artifact was run without network, environment-file injection or volume mounts. |
-| **2026-10-21 15:42:20Z** | Finished source-built base verified: CLI and FPM 8.5.12, linux/amd64. Application build subsequently completed. Interactive execution was then interrupted by an assistant usage limit before deployment; containment remained in place. |
+| **2026-10-21 15:42:20Z** | Finished source-built base verified: CLI and FPM 8.5.12, linux/amd64. The application build was launched next. Interactive execution was interrupted by an assistant usage limit before deployment; successful build completion was confirmed on resuming, and containment remained in place. |
 | **2026-10-21 18:06:49Z** (22 October 02:06:49 Taiwan) | User resumed the response. Rechecked cloud ingress at 18:07:16–17Z: both backends remained internal with their previous revisions. |
 | **2026-10-21 18:07:15Z** | Existing tests passed on patched PHP (40 tests, 688 assertions). Official FPM/CLI tags now resolved; the earlier registry blockage had ended. |
 | **2026-10-21 18:07:52Z** | Real application smoke check passed: /up 200, /api/me 401 without authentication, /api/doc 200; generated test keys and in-memory SQLite only. |
 | **2026-10-21 18:08:16Z** | Existing isolated runtime smoke script passed all 41 checks. |
+| **2026-10-21 18:11:39Z** | Local native-arm64 dev image, built from the published official PHP 8.5.12 base, reported patched CLI/FPM versions. `/up` and application ping passed. Existing database and Redis containers were retained. |
+| **2026-10-21 18:12:58.388552Z** | Dev patched revision `medicare-dev-00013-6fh` was ready with 100% traffic. Dev version-only job execution `v8zk2` reported CLI/FPM 8.5.12. Ingress was still internal before restoration. |
+| **2026-10-21 18:13:37.616055Z** (22 October 02:13:37 Taiwan) | After restoring intended dev ingress, public checks passed: `/up` 200, `/api/me` 401 without authentication, `/api/doc` 200. |
+| **2026-10-21 18:14:09Z** | Normal `main` pipeline 2973319344 started after the security merge. Its final result was checked separately from local validation. |
+| **2026-10-21 18:14:47.118406Z** | Prod patched revision `medicare-prod-00008-46r` was ready with 100% traffic. Prod version-only job execution `f48hw` reported CLI/FPM 8.5.12. Ingress was still internal before restoration. |
+| **2026-10-21 18:15:36.596686Z** (22 October 02:15:36 Taiwan) | After restoring intended prod ingress, the same public 200/401/200 checks passed. Both manual recovery paths had now been verified. |
+| **2026-10-21 18:20:46Z** | Independently verified the CI-published official-base application artifact: linux/amd64, CLI/FPM/OPcache 8.5.12, immutable digest c6ed2f...aa70. |
+| **2026-10-21 18:22:27.390098Z** | Final official-base dev release verified: revision medicare-dev-00014-z2x, 100% traffic, matching digest, cloud version-only execution and public 200/401/200. |
+| **2026-10-21 18:23:14.273Z** | Normal main pipeline 2973319344 completed successfully; all 11 jobs passed, including the standard manually triggered prod deployment. |
+| **2026-10-21 18:25:07.701895Z** | Final official-base prod release verified: revision medicare-prod-00009-xzq, same digest and PHP version as dev, 100% traffic and public 200/401/200. |
 
 The audit-log replacement timestamps identify control-plane events; they are not a measured start and end of user-visible downtime. No exact incident duration, recovery duration or exposure window is claimed.
 
@@ -90,7 +102,7 @@ The audit-log replacement timestamps identify control-plane events; they are not
 
 The intended original backend ingress was `internal-and-cloud-load-balancing`. The response changed both backends to `internal`, verified that state through the Cloud Run control plane, and checked the public entry points. The observed `404` responses showed that the normal public path no longer reached the backend application during those checks. Internal access was not eliminated.
 
-The tradeoff was deliberate downtime for the demonstration API. The frontend could still load, but login and protected operations depended on the unavailable backend. This response therefore makes no zero-downtime claim. Restoring the original public path is gated on patched-image and revision verification.
+The tradeoff was deliberate downtime for the demonstration API. The frontend could still load, but login and protected operations depended on the unavailable backend. This response therefore makes no zero-downtime claim. The original public path was restored after the patched artifact, ready revision, traffic and version-only cloud execution checks. Public HTTP checks then confirmed normal health, unauthenticated API rejection and documentation access.
 
 ### Use a security branch based on the deployed feature baseline
 
@@ -98,13 +110,13 @@ The ongoing `backend/features` branch contained three reporting changes not merg
 
 The security branch was created from `origin/main` at `109f926f743b13adf8a7e2734f18f31783b4ace0`. The feature branch remained separate. The prepared patch changed the runtime base, the two CI PHP image references, normal backend base-image pull behavior, and the README security note. No schema change or business feature was required.
 
-The initial checkpoint contained an uncommitted diff. Commit, merge and CI results are recorded separately as they occur; local validation is not represented as a completed remote pipeline.
+The initial checkpoint contained an uncommitted diff. The completed security commit is `6e08b1a0f4065b7c9a8def699765f47e2918b2b5`, merged through [MR 33](https://gitlab.com/woizhicheng0309/medicare/-/merge_requests/33) as main merge `20a82c71b27c749cd334ec25ff1ecf138d60cfc9`. The branch pipeline was skipped with `ci.skip` to avoid duplicate execution; the normal main pipeline did run. The normal main pipeline subsequently passed all 11 jobs; final official-base artifact promotion and independent verification are recorded below.
 
 ### Treat registry publication as a separate dependency
 
 A version announcement, an upstream Dockerfile change, a registry tag and a running application container are four different artifacts. In this response they did not become available simultaneously.
 
-The normal Dockerfile now names `php:8.5.12-fpm-trixie`, and CI names `php:8.5.12-cli`. The normal application build now requests `--pull`. These prevent silently relying on a previously cached floating base during ordinary builds, but they do not create a tag that the registry has not published. Until the exact tags resolve, a normal CI build using those pins may fail at image retrieval.
+The normal Dockerfile now names `php:8.5.12-fpm-trixie`, and CI names `php:8.5.12-cli`. The normal application build now requests `--pull`. These prevent silently relying on a previously cached floating base during ordinary builds, but they do not create a tag that the registry has not published. During the tag-publication gap, those exact pins could not be retrieved for a normal CI build. Both tags resolved on the 18:07Z recheck, allowing the normal main pipeline to use published official images.
 
 The emergency path used a locally built official-source base, followed by an application build that intentionally does **not** request `--pull` for that missing registry tag. That exception belongs to this emergency build only; it is not evidence that the public tag exists or that the resulting image came from Docker Hub.
 
@@ -124,7 +136,7 @@ The fallback used the Docker Library PHP repository's official FPM build definit
 | Build target architecture | `linux/amd64`, matching the deployment target |
 | Intended emergency local tag | `php:8.5.12-fpm-trixie`; locally built, not a claim of registry origin |
 | Source-built base local image ID | `sha256:573d9c6602f30ce3d4b9445f36229b79533c7c9d2b21e8c991276bb97c3d7efe` |
-| Source-built application local manifest index | `sha256:e37cc6afbf816b8ae094ee24083578a17b1f97e1fd247b2cee0ace48b5aa67f4` |
+| Source-built application manifest index used for manual recovery | `sha256:e37cc6afbf816b8ae094ee24083578a17b1f97e1fd247b2cee0ace48b5aa67f4` |
 | Official published FPM tag, observed at 18:07Z | `sha256:8b4b4a764f7985137b13e4cb49dd59e967d9daa7946a731f9d06e31e748e39bb` |
 | Official published CLI tag, observed at 18:07Z | `sha256:ce5d49625b9c50020dc1ce3c9cf4cdfa31cba31b6651e72daa3e6f5a010d234a` |
 
@@ -138,7 +150,7 @@ Configuration-only changes such as disabling upload progress, changing error-dis
 
 Restarting an existing application container would start the same embedded interpreter. Updating a Dockerfile would affect a future build, not an existing revision. Updating a service image would also leave a migration job stale unless its image reference was updated separately. These were explicit deployment checks in the response plan.
 
-No database reset, `migrate:fresh`, demo-data replacement, broad cache purge or unrelated feature merge was needed. The intended image-verification job command prints and asserts a PHP version; it must not accidentally run the default migration-and-seed script during that check.
+No database reset, `migrate:fresh`, demo-data replacement, broad cache purge or unrelated feature merge was needed. The actual image-verification job executions overrode arguments to print and assert the PHP version; they did not run the default migration-and-seed script. Normal job commands were retained and subsequently used by the standard CI release.
 
 ## Sanitized command examples
 
@@ -204,34 +216,38 @@ gcloud run services update BACKEND_SERVICE \
 
 ## Evidence ledger
 
-| Evidence | Status at this checkpoint | What it supports; what it does not support |
+| Evidence | Recorded result | What it supports; what it does not support |
 | --- | --- | --- |
 | PHP release announcement and primary advisories | Read and cross-checked | Supports the selected fix; does not prove a deployment changed |
-| Local `php -v` | PHP 8.5.11 observed | Confirms that local runtime needed an update; does not measure every cloud worker |
-| Offline checks of exact deployed artifact | PHP 8.5.11 CLI and FPM observed at the recorded digest | Confirms affected version in the artifact resolved by both cloud services; not a post-patch check inside a cloud execution |
-| FPM and Nginx configuration review | Completed | Establishes the web execution model and configured limits; does not demonstrate exploitation |
-| Read-only application-code review | Completed within reviewed paths | Identifies no obvious separate code-execution chain; not a comprehensive security certification |
-| Pre-response cloud image references | Shared old digest recorded | Identifies affected deployment consumers; binary verification is separate |
-| Containment control-plane changes and public requests | `internal` ingress and public `404` observed for both backends | Confirms the tested public path was blocked at that time; not proof of zero access from every network |
-| Repository diff and YAML parse | Prepared diff, clean whitespace check and parsed YAML | Supports reviewability and syntax; not a successful image build or CI result |
-| Exact official Dockerfile, source checksum and signature | Recorded and verified before compilation | Supports build-input provenance; finished-binary verification remains pending |
-| Patched base and application image versions | CLI and FPM 8.5.12 verified in both images | Confirms built binaries; deployment and remote digest are separate checks |
+| Local pre-patch `php -v` | PHP 8.5.11 observed | Confirms the local runtime needed an update |
+| Offline checks of exact old deployed artifact | PHP 8.5.11 CLI/FPM at the recorded old digest | Confirms affected version in the artifact resolved by both cloud services |
+| FPM/Nginx configuration and application review | Completed within reviewed paths | Identifies configuration and no obvious separate application code-execution chain; not a security certification or exploit demonstration |
+| Containment control-plane changes and normal public requests | Both backends changed to internal; public API 404 observed | Confirms the tested public path was blocked at that time, not that every internal access path was eliminated |
+| Source provenance | Fixed upstream commit; Dockerfile hash, source checksum and signature recorded | Supports build inputs and auditability |
+| Patched source-built base and application images | CLI/FPM 8.5.12, linux/amd64; application index `sha256:e37cc6afbf816b8ae094ee24083578a17b1f97e1fd247b2cee0ace48b5aa67f4` | Identifies the actual emergency artifact; distinct from later official-registry CI output |
 | Existing backend regression tests | 40 passed, 688 assertions on PHP 8.5.12 | Network disabled, SQLite in memory; no MySQL access |
-| Existing isolated runtime smoke | 41 passed, 0 failed | Checks routing, FPM settings, extensions, Supervisor, logs and shutdown using fixtures |
-| Local real-application production-container smoke | /up 200; /api/me 401; /api/doc 200 | Generated test keys, no project env file or external database attached |
-| Dev patched revision and actual PHP version | **Pending** | Required before dev ingress restoration |
-| Prod patched revision and actual PHP version | **Pending** | Required before prod ingress restoration |
-| Migration job image updates and version-only execution | **Pending** | Must distinguish image update from execution of schema/data commands |
-| Restored public access and normal HTTP responses | **Pending** | Required before claiming recovery |
-| Local backend recreate and patched version | **Pending** | Required before claiming all inventoried runtimes updated |
-| Security commit, merge, pipeline and final deployed digest | **Pending** | Record actual identifiers and results; do not infer them from a planned workflow |
-| Compromise investigation | No full forensic investigation recorded | No evidence in this response establishes compromise; this is not a finding that compromise was impossible or absent |
+| Existing isolated runtime smoke | 41 passed, 0 failed | Routing, FPM settings, extensions, Supervisor, logging and shutdown checked with fixtures |
+| Local real-application production smoke | `/up` 200; unauthenticated `/api/me` 401; `/api/doc` 200 | Generated test keys; no project env file or external database attached |
+| Dev rollout and cloud version execution | Revision `medicare-dev-00013-6fh`, 100% traffic; job `v8zk2` printed CLI/FPM 8.5.12 | Confirms service artifact configuration/readiness and actual execution of the same image in the cloud job; not an exec session inside a live service worker |
+| Prod rollout and cloud version execution | Revision `medicare-prod-00008-46r`, 100% traffic; job `f48hw` printed CLI/FPM 8.5.12 | Same distinct configuration and execution evidence for prod |
+| Migration jobs | Both image references updated to the patched application digest; version-only executions succeeded | No migrations, seeders or database reset were required for these checks |
+| Restored public access | Intended ingress restored; both sites passed 200/401/200 checks at recorded times | Supports manual service recovery; does not replace every authenticated business workflow check |
+| Local backend recreation | Official-registry PHP 8.5.12 native-arm64 dev image; `/up` 200 and ping 200/pong | Local runtime updated while existing database and Redis containers remained |
+| Source control | Security commit `6e08b1a`; MR 33 merged as `20a82c7` | Security fix integrated separately from unreleased reporting features |
+| Normal main CI rebuild and release | Pipeline 2973319344 passed all 11 jobs; final official-base artifact and both cloud environments independently verified | Completed routine release after the emergency recovery; see final addendum |
+| Compromise investigation | No full forensic investigation recorded | No evidence here establishes compromise; not a finding that compromise was impossible or absent |
 
-Raw environment files, credentials, application tokens, full service descriptions, private account details and unredacted cloud logs are excluded from this record. Temporary local build logs are diagnostic evidence, not a durable public archive. Preserve only sanitized excerpts needed to support the final claims.
+Raw environment files, credentials, application tokens, full service descriptions, private account details and unredacted cloud logs are excluded from this record. Selected successful/retried build logs and a SHA-256 manifest were retained privately with the interview material. The first failed source-build attempt was not saved as a separate raw log; its failure and correction are recorded in the timeline. Public documentation includes selected evidence rather than credentials or full service configurations.
 
-## Recovery and rollback conditions
+## Recovery, verification and rollback
 
-Recovery must establish the following for each environment: the new image is identifiable by digest; its PHP binary is patched; the intended Cloud Run revision is ready and receives the intended traffic; associated migration jobs use a patched image; public ingress is restored only after those checks; and normal health, authentication failure and documentation requests behave as expected.
+Manual recovery met the artifact, runtime and public-behavior checks recorded above: a pinned patched image, ready service revisions with 100% traffic, updated migration-job images, version-only cloud job executions, restored ingress and normal public HTTP responses. Cloud jobs supplied the direct remote PHP version evidence; the service control plane identified the same immutable image. No shell was opened inside a live web worker.
+
+The manually deployed emergency artifact was built from verified official source. The subsequent normal main pipeline built from the published official registry bases and produced a different application digest containing PHP 8.5.12. Its successful release and independent verification are recorded separately below, preserving both artifact histories.
+
+An assistant usage limit interrupted interactive execution after the application build had been launched but before deployment. The already-started local build could finish during the pause; no cloud deployment continued automatically. On the user's return, the first checks confirmed that containment remained in place. This interruption is part of the response history, not build time or a completed deployment.
+
+The one branch pipeline was skipped to avoid duplicate execution, while [normal main pipeline 2973319344](https://gitlab.com/woizhicheng0309/medicare/-/pipelines/2973319344) ran after the merge. Its automatic dev deployment and standard manually triggered prod deployment both completed, separately from the earlier emergency recovery.
 
 If a patched rollout fails, the first safe operational fallback is to keep or restore restricted ingress while diagnosing it. An old working revision is not an acceptable public rollback merely because it previously served requests: it may contain the vulnerable runtime. Any externally reachable rollback target must itself have a verified patched PHP version. The pre-response digest is retained for traceability, not endorsed as a recovery target.
 
@@ -239,45 +255,65 @@ This response does not require schema changes. Rebuilding the image and updating
 
 ## Interview material grounded in the evidence
 
-At the current checkpoint, an accurate short explanation is:
+An accurate short explanation after manual recovery is:
 
-> A critical PHP runtime advisory affected the version used by my Laravel demonstration project. I checked the official PHP and Google Cloud guidance, verified the local runtime and deployment architecture, isolated a security branch from ongoing feature work, and temporarily restricted both public backends. When the fixed Docker tags were not yet available, the response moved to an official-source build with recorded checksum, signature and upstream commit. Build and deployment verification were still in progress at this checkpoint.
+> A critical PHP runtime advisory affected the version embedded in my Laravel project's images. In a tool-assisted response, I checked primary PHP and Google guidance, inventoried services and jobs, and isolated a security branch. When the fixed registry tags were unavailable, we temporarily restricted public ingress and built from a fixed official source definition with checksum/signature verification. We verified PHP 8.5.12, passed existing tests and smoke checks, deployed the same immutable emergency artifact to dev and prod, checked version-only cloud job executions, and restored public access with normal HTTP responses. The ordinary CI release subsequently passed, and both environments were verified against its shared immutable digest.
 
-After recovery is actually verified, replace the last sentence with the recorded build, deployment and recovery results. Do not claim completion from this draft.
+The completed response demonstrates:
 
-The engineering skills evidenced by the completed portions are:
+- Checking current primary advice against an earlier news report.
+- Separating runtime exposure from application authentication and code-review findings.
+- Inventorying services and operational jobs sharing a vulnerable image.
+- Containing public exposure while documenting the availability cost.
+- Keeping the urgent fix separate from unreleased features.
+- Diagnosing registry publication delays and preserving source-build provenance.
+- Validating actual binaries, promoting an immutable artifact and checking cloud readiness and public behavior.
+- Recovering through a pause without assuming work had continued automatically.
+- Separating a verified emergency deployment from a later normal CI rebuild.
+- Reporting uncertainty and evidence limits without inventing an exploit, compromise finding or zero-downtime result.
 
-- Validating current upstream advice and distinguishing it from an earlier news report.
-- Separating runtime exposure from application authentication and code review findings.
-- Inventorying every consumer of a vulnerable image, including operational jobs.
-- Containing exposure while making the availability cost explicit.
-- Keeping an urgent patch separate from unreleased business features.
-- Diagnosing a registry publication delay instead of assuming a floating tag contains a fix.
-- Preserving source provenance while adapting the build path to available artifacts.
-- Recording evidence strength, incomplete work and uncertainty without inflating the outcome.
+No claim is made that a demonstrated attack was stopped, that every authenticated workflow was re-exercised, that all vulnerabilities were eliminated, or that performance improved.
 
-The pending deployment steps may add evidence of artifact promotion, cloud runtime verification and service recovery. They should appear in the interview account only after they occur. No claim is made here that an attack was stopped, that there was zero downtime, that every vulnerability was eliminated, or that performance improved.
+## Follow-up
 
-## Follow-up after recovery
+1. Keep the final pipeline, artifact and deployment evidence below with future runtime-update records.
+2. Keep a lightweight runtime-version inventory and an emergency image-update checklist that includes Cloud Run jobs.
+3. Retain request-size and memory controls as routine hardening without presenting them as substitutes for the runtime patch.
+4. Decide separately whether further log review or forensic investigation is warranted; a patch response is not a forensic conclusion.
+5. Retain sanitized evidence in durable project records. Temporary local logs are not the sole long-term evidence store.
 
-1. Replace this in-progress status with the verified final result, image digests, revisions, commit and pipeline outcome.
-2. Record actual recovery checks and timestamps from observed results; report a downtime duration only if supported by start and end evidence.
-3. Return the normal build path to published official patch tags once available and verify that CI can retrieve both FPM and CLI images.
-4. Keep a lightweight runtime-version inventory and a repeatable emergency image-update checklist, including Cloud Run jobs.
-5. Retain request-size and memory controls as routine hardening, without presenting them as substitutes for the runtime update.
-6. Decide separately whether further log review or forensic investigation is needed. A lack of observed exploit evidence during this patch response is not a forensic conclusion.
+## Emergency recovery evidence
 
-## Completion addendum — intentionally unfilled
-
-| Final item | Verified result |
+| Item | Result |
 | --- | --- |
-| Patched PHP base build and binary version | Completed; CLI and FPM 8.5.12, linux/amd64 |
-| Application build, architecture and digest | Pending |
-| Local smoke-check result | 40 backend tests / 688 assertions; 41 runtime checks; real application 200/401/200 |
-| Dev revision, version check and restoration | Pending |
-| Prod revision, version check and restoration | Pending |
-| Dev/prod migration job images and version-only checks | Pending |
-| Local Compose backend version after recreation | Pending |
-| Security commit / merge request / pipeline | Pending |
-| Final service recovery observation time | Pending |
-| Remaining limitations or follow-up owner | Pending |
+| Source-built PHP base | CLI/FPM 8.5.12, linux/amd64, verified 15:42:20Z |
+| Emergency application artifact | `sha256:e37cc6afbf816b8ae094ee24083578a17b1f97e1fd247b2cee0ace48b5aa67f4`; built from verified official source |
+| Existing checks | 40 backend tests / 688 assertions; 41 runtime checks; real application 200/401/200 |
+| Dev manual recovery | Revision `medicare-dev-00013-6fh`; job execution `v8zk2`; PHP CLI/FPM 8.5.12; public 200/401/200 observed 18:13:37.616055Z |
+| Prod manual recovery | Revision `medicare-prod-00008-46r`; job execution `f48hw`; PHP CLI/FPM 8.5.12; public 200/401/200 observed 18:15:36.596686Z |
+| Manual migration-job verification | Both updated to the emergency artifact; these version-only executions ran no schema/data commands. Later standard CI migration checks are recorded separately below. |
+| Local development | Native-arm64 dev image rebuilt from official registry base; PHP 8.5.12 and health/ping verified 18:11:39Z; existing database/Redis containers retained |
+| Security source control | Commit `6e08b1a0f4065b7c9a8def699765f47e2918b2b5`; [MR 33](https://gitlab.com/woizhicheng0309/medicare/-/merge_requests/33); main merge `20a82c71b27c749cd334ec25ff1ecf138d60cfc9` |
+| Availability limits | Deliberate API interruption during containment; no exact user-visible downtime or exposure-window measurement claimed |
+| Security limits | Version remediation verified; no exploit demonstration or complete forensic conclusion |
+
+## Normal CI follow-through — verified final state
+
+[Main pipeline 2973319344](https://gitlab.com/woizhicheng0309/medicare/-/pipelines/2973319344) succeeded at **2026-10-21 18:23:14.273Z** (22 October 02:23:14 Taiwan). All **11 jobs** passed, including syntax/dependency checks, existing backend tests, frontend validation, Secret Detection, image builds/publishing, automatic dev deployment and the standard manually triggered prod deployment.
+
+The final application image was built from the now-published official PHP base. Its tag is the main merge commit `20a82c71b27c749cd334ec25ff1ecf138d60cfc9`; its immutable registry digest is `sha256:c6ed2f015f96ee82638b36e34ac52dad43c7b6fecd6edc22ef90173b2ca5aa70`. It is a single linux/amd64 manifest. Independent offline execution at 18:20:46Z confirmed CLI/FPM/OPcache 8.5.12. This differs from the earlier source-built emergency index `e37cc6...`, which remains part of the response history.
+
+| Final check | Dev | Prod |
+| --- | --- | --- |
+| Ready revision | medicare-dev-00014-z2x | medicare-prod-00009-xzq |
+| Traffic | 100% to the recorded revision | 100% to the recorded revision |
+| Application digest | sha256:c6ed2f015f96ee82638b36e34ac52dad43c7b6fecd6edc22ef90173b2ca5aa70 | sha256:c6ed2f015f96ee82638b36e34ac52dad43c7b6fecd6edc22ef90173b2ca5aa70 |
+| Version-only cloud execution | medicare-dev-migration-job-6ht8g | medicare-prod-migration-job-7jb2l |
+| Cloud execution result | PHP CLI/FPM 8.5.12 | PHP CLI/FPM 8.5.12 |
+| Ingress | internal-and-cloud-load-balancing | internal-and-cloud-load-balancing |
+| Public requests | /up 200; /api/me 401; /api/doc 200 | /up 200; /api/me 401; /api/doc 200 |
+| Final observation (UTC) | 2026-10-21T18:22:27.390098+00:00 | 2026-10-21T18:25:07.701895+00:00 |
+
+The standard CI release ran its existing `migrate --force` step. Filtered job logs recorded **Nothing to migrate** for dev at 18:19:19.341349Z and prod at 18:22:10.328394Z. No new migrations were included, and the existing startup script seeds only when APP_ENV is local. No database reset or demonstration-data replacement was performed. The later verification executions overrode arguments for that execution only; both job defaults were rechecked as `/bin/sh /var/www/db-migrate-seed.sh`.
+
+The final records therefore distinguish three results: the emergency source build and recovery, the native local rebuild from the official registry, and the successful normal cloud CI release. No claim of exploitation, complete forensic clearance or zero downtime is added by this completion.
