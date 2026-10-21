@@ -61,6 +61,7 @@ Redis is not configured in the cloud environments. Benefit balances and the Help
 - `/api/me` restores the authenticated user's profile and role.
 - Employee overview displays annual benefits, personal visits and medications.
 - HR manages own-company employees, reviews visits/medications and assigns the current-year benefit plan.
+- HR can retrieve a current-year company medical spending summary through the API and Swagger.
 - Helpdesk reviews pending visits across client companies and approves or rejects submissions.
 - React forms submit visits, assign benefit plans and review submissions through protected APIs.
 - Visits support diagnosis, sick leave dates, visit time, doctor details and multiple medications.
@@ -71,6 +72,34 @@ Redis is not configured in the cloud environments. Benefit balances and the Help
 - Swagger documents the application APIs, with email login and JWT Bearer authorization.
 
 Only approved visits count toward annual usage. Medication costs are included in visit covered amounts and are not deducted twice. Each employee has one plan assignment per calendar year; changing plans preserves that year's usage. Display/input use whole TWD and storage uses integer cents.
+
+### HR annual medical spending summary
+
+`GET /api/hr/summary` requires a valid JWT and an HR account with company membership. The company scope comes from the authenticated HR account; the endpoint does not accept a company ID. The optional `year` query parameter accepts an integer from 2000 to the current year and defaults to the current year when omitted. Invalid years return HTTP 422 through `HrSummaryRequest` validation.
+
+The response contains:
+
+| Field | Meaning |
+| --- | --- |
+| `year` | Selected calendar year; defaults to the current year |
+| `currency` | `TWD` |
+| `employee_count` | Current number of employees in the HR account's company, excluding HR and Helpdesk accounts |
+| `approved_visit_count` | Number of approved visits in that year belonging to the company's current employees |
+| `used_amount` | Total coverage of those approved visits, expressed in whole TWD |
+
+The Service scopes visits through their employee relationship and performs `COUNT` and `SUM` in the database. Pending and rejected visits are excluded; medication amounts are already included in visit coverage and are not added again. A company with no matching approved visits receives zero visit count and spending. This is a summary based on current company membership, not a historical employee headcount report.
+
+The endpoint is available through the API and Swagger; a React summary dashboard is not implemented. Use `/api/hr/summary` for the current year or `/api/hr/summary?year=2025` for a selected year. Employee count always reflects current company membership, regardless of the selected year.
+
+Local manual Swagger checks confirmed the current-year summary, a 2025 response with zero visits and spending for an empty reporting year, and an HTTP 422 response for a future year (2027 when the current year was 2026). Values change as demonstration records are reviewed or added.
+
+### HR clinic ranking
+
+`GET /api/hr/clinic-statistics` returns up to five clinics ranked by approved visit count, with clinic name ascending as the tie-breaker. It uses the same HR authorization and optional `year` validation as the annual summary. Only visits belonging to the authenticated HR company's current employees are included; no company ID can be supplied by the caller.
+
+The response contains `year`, `currency` (`TWD`) and a `clinics` array. Each entry includes `clinic`, `approved_visit_count` and `used_amount` in whole TWD. Grouping, counting, summing, sorting and the five-clinic limit are performed in the database. Medication costs are included in visit coverage, not added again. No matching visits produce an empty array. Clinics are grouped using the existing clinic-name field and the database's collation; there is no separate clinic directory or clinic ID.
+
+A local manual Swagger call returned three clinics totaling 17 approved visits and TWD 16,000, consistent with the annual summary for that dataset. The two clinics with eight visits each appeared in clinic-name order. If more than five clinics match, ranking totals cover only the returned five and may differ from the full annual summary. This endpoint is currently API/Swagger only, without a React dashboard or Redis cache.
 
 ## Local development
 
